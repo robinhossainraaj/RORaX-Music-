@@ -1,0 +1,6 @@
+{
+  "name": "RORaX Music",
+  "description": "Offline-first local music player with cinematic line-by-line synchronized lyrics, bulk LRCLIB caching, and optional AI lyric insights.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

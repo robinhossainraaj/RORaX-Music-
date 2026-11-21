@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="rorax_obsidian">#FF080A0F</color>
+    <color name="rorax_surface">#FF10141E</color>
+    <color name="rorax_cyan">#FF00E5C4</color>
+    <color name="rorax_amber">#FFFFB347</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>
