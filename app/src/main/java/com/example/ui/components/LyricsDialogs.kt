@@ -40,7 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.repo.AiInsightResult
 import com.example.lyrics.LrcParser
-import com.example.model.LrclibCandidate
+import com.example.model.LyricCandidate
 import com.example.model.Song
 import com.example.ui.viewmodel.AiSheetUiState
 import com.example.ui.viewmodel.ManualSearchUiState
@@ -52,15 +52,15 @@ fun ManualLyricSearchSheet(
   aiEnabled: Boolean,
   onQueryChange: (String) -> Unit,
   onSearch: () -> Unit,
-  onSelectCandidate: (LrclibCandidate) -> Unit,
-  onRequestAiSuggest: (Song, List<LrclibCandidate>) -> Unit,
+  onSelectCandidate: (LyricCandidate) -> Unit,
+  onRequestAiSuggest: (Song, List<LyricCandidate>) -> Unit,
   onDismiss: () -> Unit,
 ) {
   val song = state.song ?: return
   ModalBottomSheet(onDismissRequest = onDismiss) {
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
       Text(
-        text = "Find Lyrics on LRCLIB",
+        text = "Find Lyrics",
         style = MaterialTheme.typography.titleLarge,
       )
       Text(
@@ -78,12 +78,12 @@ fun ManualLyricSearchSheet(
         OutlinedTextField(
           value = state.query,
           onValueChange = onQueryChange,
-          label = { Text("Track / artist query") },
+          label = { Text("Song or artist") },
           singleLine = true,
           modifier = Modifier.weight(1f),
         )
         IconButton(onClick = onSearch) {
-          Icon(Icons.Rounded.Search, contentDescription = "Search LRCLIB")
+          Icon(Icons.Rounded.Search, contentDescription = "Search")
         }
       }
 
@@ -116,7 +116,7 @@ fun ManualLyricSearchSheet(
         }
         state.results.isEmpty() -> {
           Text(
-            text = "No matching lyrics returned. Try editing the query or importing a local .lrc file.",
+            text = "No lyrics found. Try different words, or add a lyrics file.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(vertical = 20.dp),
@@ -142,9 +142,9 @@ fun ManualLyricSearchSheet(
 @Composable
 fun ReviewCandidatesSheet(
   song: Song,
-  candidates: List<LrclibCandidate>,
+  candidates: List<LyricCandidate>,
   aiEnabled: Boolean,
-  onSelectCandidate: (LrclibCandidate) -> Unit,
+  onSelectCandidate: (LyricCandidate) -> Unit,
   onOpenManualSearch: () -> Unit,
   onRequestAiSuggest: () -> Unit,
   onDismiss: () -> Unit,
@@ -156,7 +156,7 @@ fun ReviewCandidatesSheet(
         style = MaterialTheme.typography.titleLarge,
       )
       Text(
-        text = "Multiple plausible candidates matched \"${song.title}\". Pick the accurate version:",
+        text = "We found a few possible matches for \"${song.title}\". Pick the right one:",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
@@ -187,7 +187,7 @@ fun ReviewCandidatesSheet(
       ) {
         Icon(Icons.Rounded.Search, contentDescription = null)
         Spacer(Modifier.width(8.dp))
-        Text("Search LRCLIB Manually")
+        Text("Search Manually")
       }
       Spacer(Modifier.height(20.dp))
     }
@@ -195,7 +195,7 @@ fun ReviewCandidatesSheet(
 }
 
 @Composable
-private fun CandidateRow(candidate: LrclibCandidate, onSelect: () -> Unit) {
+private fun CandidateRow(candidate: LyricCandidate, onSelect: () -> Unit) {
   Card(
     modifier =
       Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable(onClick = onSelect),
@@ -229,10 +229,10 @@ private fun CandidateRow(candidate: LrclibCandidate, onSelect: () -> Unit) {
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
           val badgeText =
             when {
-              candidate.hasSyncedLyrics -> "SYNCED LRC"
-              candidate.hasPlainLyrics -> "PLAIN TEXT"
+              candidate.hasSyncedLyrics -> "SYNCED"
+              candidate.hasPlainLyrics -> "TEXT ONLY"
               candidate.instrumental -> "INSTRUMENTAL"
-              else -> "EMPTY"
+              else -> "NO LYRICS"
             }
           val badgeColor =
             if (candidate.hasSyncedLyrics) MaterialTheme.colorScheme.primary
@@ -246,15 +246,6 @@ private fun CandidateRow(candidate: LrclibCandidate, onSelect: () -> Unit) {
               style = MaterialTheme.typography.labelSmall,
               color = badgeColor,
               modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-            )
-          }
-          if (candidate.matchReason.isNotBlank()) {
-            Text(
-              text = candidate.matchReason,
-              style = MaterialTheme.typography.labelSmall,
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-              maxLines = 1,
-              overflow = TextOverflow.Ellipsis,
             )
           }
         }

@@ -11,7 +11,7 @@ import com.example.data.repo.LyricLookupOutcome
 import com.example.model.AccentPalette
 import com.example.model.AlbumSummary
 import com.example.model.ArtistSummary
-import com.example.model.LrclibCandidate
+import com.example.model.LyricCandidate
 import com.example.model.LyricRecord
 import com.example.model.LyricSyncStatus
 import com.example.model.PlaylistWithSongs
@@ -42,7 +42,7 @@ data class ManualSearchUiState(
   val song: Song? = null,
   val query: String = "",
   val isLoading: Boolean = false,
-  val results: List<LrclibCandidate> = emptyList(),
+  val results: List<LyricCandidate> = emptyList(),
   val error: String? = null,
 )
 
@@ -165,7 +165,7 @@ class RoraxViewModel(application: Application) : AndroidViewModel(application) {
         _splashState.value = SplashInitState.Ready
       } catch (e: Exception) {
         _splashState.value =
-          SplashInitState.Error(e.localizedMessage ?: "Failed to initialize RORaX Music.")
+          SplashInitState.Error("Something went wrong while loading your library. Please try again.")
       }
     }
   }
@@ -207,11 +207,11 @@ class RoraxViewModel(application: Application) : AndroidViewModel(application) {
       result.onSuccess { list ->
         playbackController.restoreLastSessionIfEnabled()
         if (list.isEmpty()) {
-          showMessage("Library scan finished — no local audio files found.")
+          showMessage("No music found on this device.")
         }
       }
       result.onFailure { err ->
-        showMessage(err.localizedMessage ?: "Could not scan local audio library.")
+        showMessage("Couldn't refresh your library. Please try again.")
       }
     }
   }
@@ -267,8 +267,8 @@ class RoraxViewModel(application: Application) : AndroidViewModel(application) {
             if (showUserToast) {
               val label =
                 when (outcome.record.status) {
-                  LyricSyncStatus.CACHED_SYNCED -> "Synchronized lyrics cached."
-                  LyricSyncStatus.CACHED_PLAIN -> "Plain lyrics cached (no timestamps)."
+                  LyricSyncStatus.CACHED_SYNCED -> "Lyrics downloaded."
+                  LyricSyncStatus.CACHED_PLAIN -> "Lyrics saved (not timed to the song)."
                   LyricSyncStatus.INSTRUMENTAL -> "Marked as instrumental."
                   else -> "Lyrics updated."
                 }
@@ -277,11 +277,11 @@ class RoraxViewModel(application: Application) : AndroidViewModel(application) {
           }
           is LyricLookupOutcome.NeedsReview -> {
             if (showUserToast) {
-              showMessage("${outcome.candidates.size} lyric matches found — review to pick one.")
+              showMessage("${outcome.candidates.size} possible matches found. Review to pick one.")
             }
           }
           is LyricLookupOutcome.NotFound -> {
-            if (showUserToast) showMessage("No lyrics found on LRCLIB for \"${song.title}\".")
+            if (showUserToast) showMessage("No lyrics found for \"${song.title}\".")
           }
           is LyricLookupOutcome.Failed -> {
             if (showUserToast) showMessage(outcome.message)
@@ -332,7 +332,7 @@ class RoraxViewModel(application: Application) : AndroidViewModel(application) {
     _manualSearchState.value = ManualSearchUiState()
   }
 
-  fun applyCandidate(songId: Long, candidate: LrclibCandidate) {
+  fun applyCandidate(songId: Long, candidate: LyricCandidate) {
     viewModelScope.launch {
       lyricsRepo.applyCandidate(songId, candidate)
       closeManualSearch()
@@ -346,9 +346,9 @@ class RoraxViewModel(application: Application) : AndroidViewModel(application) {
       result.onSuccess { record ->
         val msg =
           if (record.status == LyricSyncStatus.CACHED_SYNCED) {
-            "Imported synchronized .LRC lyrics."
+            "Lyrics added."
           } else {
-            "Imported plain text lyrics (no timestamps found)."
+            "Lyrics added (not timed to the song)."
           }
         showMessage(msg)
       }
@@ -360,7 +360,7 @@ class RoraxViewModel(application: Application) : AndroidViewModel(application) {
 
   fun startBulkDownload(forceRefresh: Boolean = false) {
     if (!hasAudioPermission.value || songs.value.isEmpty()) {
-      showMessage("Scan local songs first before downloading lyrics.")
+      showMessage("Refresh your library first.")
       return
     }
     if (!lyricsRepo.isNetworkAvailable()) {
@@ -369,11 +369,11 @@ class RoraxViewModel(application: Application) : AndroidViewModel(application) {
     }
     val wifiOnly = preferences.value.wifiOnlyBulkDownloads
     if (wifiOnly && !lyricsRepo.isOnWifi()) {
-      showMessage("Wi-Fi only mode is enabled in Settings. Connect to Wi-Fi or allow cellular.")
+      showMessage("Wi-Fi only is on in Settings. Connect to Wi-Fi, or turn it off.")
       return
     }
     BulkLyricsDownloadWorker.enqueue(app, wifiOnly = wifiOnly, retryOnly = false, forceRefresh = forceRefresh)
-    showMessage("Started caching missing lyrics in background.")
+    showMessage("Downloading lyrics in the background.")
   }
 
   fun retryFailedDownloads() {
@@ -387,12 +387,12 @@ class RoraxViewModel(application: Application) : AndroidViewModel(application) {
       return
     }
     BulkLyricsDownloadWorker.enqueue(app, wifiOnly = wifiOnly, retryOnly = true, forceRefresh = false)
-    showMessage("Retrying failed lyric lookups…")
+    showMessage("Retrying…")
   }
 
   fun cancelBulkDownload() {
     BulkLyricsDownloadWorker.cancel(app)
-    showMessage("Download queue paused. Completed lyrics remain saved.")
+    showMessage("Download paused. Lyrics already downloaded are saved.")
   }
 
   // Optional AI features (Placeholder when Firebase declined)
@@ -408,7 +408,7 @@ class RoraxViewModel(application: Application) : AndroidViewModel(application) {
     }
   }
 
-  fun requestAiMatchSuggestion(song: Song, candidates: List<LrclibCandidate>) {
+  fun requestAiMatchSuggestion(song: Song, candidates: List<LyricCandidate>) {
     if (!preferences.value.aiFeaturesEnabled) {
       showMessage("Enable optional AI Features in Settings first.")
       return
@@ -436,6 +436,9 @@ class RoraxViewModel(application: Application) : AndroidViewModel(application) {
   fun setReducedMotion(enabled: Boolean) =
     viewModelScope.launch { prefsRepo.setReducedMotion(enabled) }
 
+  fun setRomanizeLyrics(enabled: Boolean) =
+    viewModelScope.launch { prefsRepo.setRomanizeLyrics(enabled) }
+
   fun setAutoLyricLookup(enabled: Boolean) =
     viewModelScope.launch { prefsRepo.setAutoLyricLookup(enabled) }
 
@@ -453,7 +456,7 @@ class RoraxViewModel(application: Application) : AndroidViewModel(application) {
   fun clearLyricCache() {
     viewModelScope.launch {
       lyricsRepo.clearLyricCache()
-      showMessage("Cached lyrics cleared. Audio files and playlists untouched.")
+      showMessage("Downloaded lyrics cleared.")
     }
   }
 

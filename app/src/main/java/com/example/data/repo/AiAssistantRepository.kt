@@ -1,6 +1,6 @@
 package com.example.data.repo
 
-import com.example.model.LrclibCandidate
+import com.example.model.LyricCandidate
 import com.example.model.Song
 
 sealed interface AiInsightResult {
@@ -24,7 +24,7 @@ interface AiAssistantRepository {
 
   suspend fun suggestBestCandidate(
     song: Song,
-    candidates: List<LrclibCandidate>,
+    candidates: List<LyricCandidate>,
   ): AiInsightResult
 }
 
@@ -53,7 +53,7 @@ class PlaceholderAiAssistantRepository : AiAssistantRepository {
 
   override suspend fun suggestBestCandidate(
     song: Song,
-    candidates: List<LrclibCandidate>,
+    candidates: List<LyricCandidate>,
   ): AiInsightResult {
     val best = candidates.maxByOrNull { it.matchScore }
     val recommendation =

@@ -8,6 +8,9 @@ import com.example.data.repo.LyricsRepository
 import com.example.data.repo.PlaceholderAiAssistantRepository
 import com.example.data.repo.UserPreferencesRepository
 import com.example.lyrics.LrclibClientFactory
+import com.example.lyrics.providers.KugouProvider
+import com.example.lyrics.providers.LrclibProvider
+import com.example.lyrics.providers.NeteaseProvider
 import com.example.player.PlaybackController
 
 class RoraxApplication : Application() {
@@ -22,15 +25,21 @@ class RoraxApplication : Application() {
     LocalMusicRepository(this, database.libraryInteractionDao())
   }
 
-  private val lrclibDeps by lazy { LrclibClientFactory.create() }
+  private val lyricsNetwork by lazy { LrclibClientFactory.create() }
 
   val lyricsRepository: LyricsRepository by lazy {
     LyricsRepository(
       context = this,
       lyricsDao = database.lyricsDao(),
       downloadTaskDao = database.downloadTaskDao(),
-      lrclibApi = lrclibDeps.first,
-      moshi = lrclibDeps.second,
+      // Best source first: the search stops as soon as one gives a confident timestamped match.
+      providers =
+        listOf(
+          LrclibProvider(lyricsNetwork.lrclibApi),
+          NeteaseProvider(lyricsNetwork.httpClient),
+          KugouProvider(lyricsNetwork.httpClient),
+        ),
+      moshi = lyricsNetwork.moshi,
     )
   }
 

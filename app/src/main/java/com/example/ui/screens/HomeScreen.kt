@@ -233,7 +233,7 @@ fun HomeScreen(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
           CircularProgressIndicator()
           Spacer(Modifier.height(12.dp))
-          Text("Scanning local audio library…", style = MaterialTheme.typography.bodyMedium)
+          Text("Looking for your music…", style = MaterialTheme.typography.bodyMedium)
         }
       }
       return
@@ -609,7 +609,7 @@ fun HomeScreen(
               if (playlists.isEmpty()) {
                 item {
                   Text(
-                    text = "No playlists yet. Create one to organize your local tracks.",
+                    text = "No playlists yet. Create one to organize your music.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(vertical = 16.dp),

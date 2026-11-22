@@ -23,6 +23,7 @@ data class UserPreferences(
   val lyricsFontSizeSp: Float = 22f,
   val reducedMotion: Boolean = false,
   val autoLyricLookupOnPlay: Boolean = true,
+  val romanizeLyrics: Boolean = true,
   val wifiOnlyBulkDownloads: Boolean = true,
   val resumeLastSession: Boolean = true,
   val defaultPlaybackSpeed: Float = 1.0f,

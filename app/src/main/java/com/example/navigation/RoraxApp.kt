@@ -397,6 +397,7 @@ fun RoraxApp(
                     onSetResumeSession = viewModel::setResumeLastSession,
                     onSetDefaultSpeed = viewModel::setDefaultPlaybackSpeed,
                     onSetAutoLookup = viewModel::setAutoLyricLookup,
+                    onSetRomanizeLyrics = viewModel::setRomanizeLyrics,
                     onSetWifiOnly = viewModel::setWifiOnlyDownloads,
                     onRescanLibrary = viewModel::rescanLibrary,
                     onRequestOrOpenPermission = {

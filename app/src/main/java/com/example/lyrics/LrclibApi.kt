@@ -1,5 +1,8 @@
 package com.example.lyrics
 
+import com.example.BuildConfig
+import com.example.model.LyricSource
+import com.example.model.RemoteLyricTrack
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
@@ -24,6 +27,19 @@ data class LrclibTrackDto(
   val syncedLyrics: String? = null,
 )
 
+fun LrclibTrackDto.toRemote(): RemoteLyricTrack =
+  RemoteLyricTrack(
+    provider = LyricSource.LRCLIB,
+    id = id,
+    trackName = trackName,
+    artistName = artistName,
+    albumName = albumName,
+    durationSec = duration,
+    instrumental = instrumental == true,
+    plainLyrics = plainLyrics,
+    syncedLyrics = syncedLyrics,
+  )
+
 interface LrclibApi {
   @GET("api/get")
   suspend fun getLyrics(
@@ -42,14 +58,20 @@ interface LrclibApi {
   ): Response<List<LrclibTrackDto>>
 }
 
+/** Shared networking objects used by every lyric source. */
+class LyricsNetwork(
+  val lrclibApi: LrclibApi,
+  val httpClient: OkHttpClient,
+  val moshi: Moshi,
+)
+
 object LrclibClientFactory {
   private const val BASE_URL = "https://lrclib.net/"
-  private const val USER_AGENT = "RORaX Music v1.0 (com.rorax.music)"
+  private const val USER_AGENT =
+    "RORaX Music/${BuildConfig.VERSION_NAME} (https://github.com/robinhossainraaj/RORaX-Music-)"
 
-  fun create(): Pair<LrclibApi, Moshi> {
+  fun create(): LyricsNetwork {
     val moshi = Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build()
-
-    val logging = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC }
 
     val okHttp =
       OkHttpClient.Builder()
@@ -66,7 +88,12 @@ object LrclibClientFactory {
               .build()
           chain.proceed(request)
         }
-        .addInterceptor(logging)
+        .apply {
+          // Request logging contains song titles, so it is only enabled in debug builds.
+          if (BuildConfig.DEBUG) {
+            addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC })
+          }
+        }
         .build()
 
     val retrofit =
@@ -76,6 +103,10 @@ object LrclibClientFactory {
         .addConverterFactory(MoshiConverterFactory.create(moshi))
         .build()
 
-    return retrofit.create(LrclibApi::class.java) to moshi
+    return LyricsNetwork(
+      lrclibApi = retrofit.create(LrclibApi::class.java),
+      httpClient = okHttp,
+      moshi = moshi,
+    )
   }
 }

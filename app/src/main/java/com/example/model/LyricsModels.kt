@@ -31,10 +31,36 @@ enum class LyricSyncStatus {
 
 enum class LyricSource {
   LRCLIB,
+  NETEASE,
+  KUGOU,
   LOCAL_LRC,
   MANUAL_SELECTION,
   NONE,
 }
+
+/** The song details used to look up lyrics. Independent of Android types so it is easy to test. */
+data class LyricQuery(
+  val title: String,
+  val artist: String,
+  val album: String,
+  val durationSec: Int,
+)
+
+fun Song.toLyricQuery(): LyricQuery =
+  LyricQuery(title = title, artist = artist, album = album, durationSec = durationSec)
+
+/** A track returned by any lyric provider, before it has been scored against the local song. */
+data class RemoteLyricTrack(
+  val provider: LyricSource,
+  val id: Long,
+  val trackName: String?,
+  val artistName: String?,
+  val albumName: String?,
+  val durationSec: Double?,
+  val instrumental: Boolean = false,
+  val plainLyrics: String? = null,
+  val syncedLyrics: String? = null,
+)
 
 enum class DownloadTaskStatus {
   QUEUED,
@@ -50,7 +76,7 @@ enum class DownloadTaskStatus {
 }
 
 @JsonClass(generateAdapter = true)
-data class LrclibCandidate(
+data class LyricCandidate(
   val id: Long,
   val trackName: String,
   val artistName: String,
@@ -61,6 +87,7 @@ data class LrclibCandidate(
   val syncedLyrics: String?,
   val matchScore: Int = 0,
   val matchReason: String = "",
+  val provider: String = "LRCLIB",
 ) {
   val hasSyncedLyrics: Boolean
     get() = !syncedLyrics.isNullOrBlank()
@@ -79,7 +106,7 @@ data class LyricRecord(
   val matchedAlbumName: String?,
   val syncedLyricsLrc: String?,
   val plainLyrics: String?,
-  val candidates: List<LrclibCandidate>,
+  val candidates: List<LyricCandidate>,
   val lastError: String?,
   val updatedAtMs: Long,
 )
