@@ -108,7 +108,7 @@ class BulkLyricsDownloadWorker(
     val total = targetSongs.size
     var completed = 0
 
-    setForeground(createForegroundInfo(0, total, "Preparing lyric queue…"))
+    setForeground(createForegroundInfo(0, total, "Getting started…"))
 
     for (song in targetSongs) {
       if (isStopped) {
@@ -145,15 +145,15 @@ class BulkLyricsDownloadWorker(
             is LyricLookupOutcome.Saved -> {
               when (outcome.record.status) {
                 LyricSyncStatus.CACHED_SYNCED -> DownloadTaskStatus.DOWNLOADED_SYNCED to null
-                LyricSyncStatus.CACHED_PLAIN -> DownloadTaskStatus.DOWNLOADED_PLAIN to "Plain lyrics only (no timestamps)"
+                LyricSyncStatus.CACHED_PLAIN -> DownloadTaskStatus.DOWNLOADED_PLAIN to "Lyrics available (not timed to the song)"
                 LyricSyncStatus.INSTRUMENTAL -> DownloadTaskStatus.INSTRUMENTAL to null
                 else -> DownloadTaskStatus.DOWNLOADED_PLAIN to null
               }
             }
             is LyricLookupOutcome.NeedsReview ->
-              DownloadTaskStatus.NEEDS_REVIEW to "${outcome.candidates.size} candidates need manual review"
+              DownloadTaskStatus.NEEDS_REVIEW to "${outcome.candidates.size} possible matches"
             is LyricLookupOutcome.NotFound ->
-              DownloadTaskStatus.NOT_FOUND to "No matching lyrics on LRCLIB"
+              DownloadTaskStatus.NOT_FOUND to "No lyrics found"
             is LyricLookupOutcome.Failed -> {
               val status =
                 if (outcome.retryable) DownloadTaskStatus.FAILED_RETRYABLE
@@ -190,7 +190,7 @@ class BulkLyricsDownloadWorker(
             album = song.album,
             durationSec = song.durationSec,
             status = DownloadTaskStatus.FAILED_RETRYABLE.name,
-            errorMessage = e.localizedMessage ?: "Lookup failed",
+            errorMessage = "Couldn't get lyrics",
             attemptCount = attempt,
             updatedAtMs = System.currentTimeMillis(),
           )
@@ -198,7 +198,7 @@ class BulkLyricsDownloadWorker(
       }
 
       completed++
-      // Respect LRCLIB rate limits with polite pacing between requests
+      // Pace requests so the lyric services are never flooded
       if (completed < total && !isStopped) {
         delay(380L)
       }
@@ -216,7 +216,7 @@ class BulkLyricsDownloadWorker(
           "Lyric Downloads",
           NotificationManager.IMPORTANCE_LOW,
         ).apply {
-          description = "Shows progress while caching synchronized lyrics offline"
+          description = "Shows lyric download progress"
         }
       nm.createNotificationChannel(channel)
     }
@@ -226,7 +226,7 @@ class BulkLyricsDownloadWorker(
     val notification =
       NotificationCompat.Builder(applicationContext, CHANNEL_ID)
         .setSmallIcon(R.drawable.ic_launcher_foreground)
-        .setContentTitle("Caching lyrics ($completed/$total)")
+        .setContentTitle("Downloading lyrics ($completed of $total)")
         .setContentText(subtitle)
         .setProgress(total.coerceAtLeast(1), completed, false)
         .setOngoing(true)

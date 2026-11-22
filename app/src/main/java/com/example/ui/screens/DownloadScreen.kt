@@ -67,7 +67,7 @@ private enum class DownloadFilter(val label: String) {
   ALL("All"),
   MISSING("Missing"),
   DOWNLOADED("Downloaded"),
-  NEEDS_REVIEW("Needs Review"),
+  NEEDS_REVIEW("Review"),
   FAILED("Failed"),
 }
 
@@ -88,9 +88,9 @@ fun DownloadScreen(
   onRetryFailed: () -> Unit,
   onRetrySingleSong: (Song) -> Unit,
   onOpenManualSearch: (Song) -> Unit,
-  onApplyCandidate: (Long, com.example.model.LrclibCandidate) -> Unit,
+  onApplyCandidate: (Long, com.example.model.LyricCandidate) -> Unit,
   onImportLrc: (Song, Uri) -> Unit,
-  onRequestAiSuggest: (Song, List<com.example.model.LrclibCandidate>) -> Unit,
+  onRequestAiSuggest: (Song, List<com.example.model.LyricCandidate>) -> Unit,
   modifier: Modifier = Modifier,
 ) {
   var selectedFilter by remember { mutableStateOf(DownloadFilter.ALL) }
@@ -207,7 +207,7 @@ fun DownloadScreen(
             ) {
               StatTile("Total", totalSongs, MaterialTheme.colorScheme.onSurface)
               StatTile("Synced", syncedCount, MaterialTheme.colorScheme.primary)
-              StatTile("Plain", plainCount, MaterialTheme.colorScheme.secondary)
+              StatTile("Text only", plainCount, MaterialTheme.colorScheme.secondary)
               StatTile("Review", reviewCount, MaterialTheme.colorScheme.secondary)
             }
             Spacer(Modifier.height(10.dp))
@@ -215,7 +215,7 @@ fun DownloadScreen(
               modifier = Modifier.fillMaxWidth(),
               horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-              StatTile("Queued", queuedCount, MaterialTheme.colorScheme.primary)
+              StatTile("Waiting", queuedCount, MaterialTheme.colorScheme.primary)
               StatTile("Not Found", notFoundCount, MaterialTheme.colorScheme.onSurfaceVariant)
               StatTile("Failed", failedCount, MaterialTheme.colorScheme.error)
               StatTile(
@@ -236,7 +236,7 @@ fun DownloadScreen(
               )
               Spacer(Modifier.height(6.dp))
               Text(
-                text = "Processed $completedInQueue of $totalInQueue tracks…",
+                text = "$completedInQueue of $totalInQueue songs",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
               )
@@ -311,7 +311,7 @@ fun DownloadScreen(
             Text(
               text =
                 if (songs.isEmpty()) "No local audio songs found."
-                else "No tracks match the ${selectedFilter.label} filter.",
+                else "Nothing to show here.",
               style = MaterialTheme.typography.bodyMedium,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -419,21 +419,21 @@ private fun DownloadSongCard(
 
       val statusDetail =
         when {
-          isWorking -> "Searching LRCLIB…"
-          task?.status == DownloadTaskStatus.QUEUED.name -> "Queued for lookup"
+          isWorking -> "Searching…"
+          task?.status == DownloadTaskStatus.QUEUED.name -> "Waiting"
           record?.status == LyricSyncStatus.CACHED_SYNCED ->
-            "Offline synced (${record.source.name.lowercase().replace('_', ' ')})"
+            "Ready offline"
           record?.status == LyricSyncStatus.CACHED_PLAIN ->
-            "Plain lyrics only — no timestamps"
+            "Lyrics available (not timed to the song)"
           record?.status == LyricSyncStatus.NEEDS_REVIEW ->
-            "${record.candidates.size} plausible matches — tap Review"
+            "${record.candidates.size} possible matches — tap Review"
           record?.status == LyricSyncStatus.NOT_FOUND ->
-            "Not found on LRCLIB — try Manual Search or Import .LRC"
+            "No lyrics found. Try searching manually or add a lyrics file."
           record?.status == LyricSyncStatus.FAILED_RETRYABLE ||
             record?.status == LyricSyncStatus.FAILED_PERMANENT ->
-            record.lastError ?: "Lookup failed"
+            record.lastError ?: "Couldn't get lyrics"
           task?.errorMessage != null -> task.errorMessage
-          else -> "Not downloaded yet"
+          else -> "Not downloaded"
         }
 
       Spacer(Modifier.height(6.dp))
@@ -491,7 +491,7 @@ private fun DownloadSongCard(
         TextButton(onClick = onImportLrc) {
           Icon(Icons.Rounded.FileOpen, contentDescription = null, modifier = Modifier.size(16.dp))
           Spacer(Modifier.width(4.dp))
-          Text(".LRC")
+          Text("Add file")
         }
 
         Spacer(Modifier.weight(1f))
@@ -501,7 +501,7 @@ private fun DownloadSongCard(
           enabled = !isWorking,
           modifier = Modifier.minimumInteractiveComponentSize(),
         ) {
-          Icon(Icons.Rounded.Refresh, contentDescription = "Lookup or retry lyrics")
+          Icon(Icons.Rounded.Refresh, contentDescription = "Find lyrics again")
         }
       }
     }

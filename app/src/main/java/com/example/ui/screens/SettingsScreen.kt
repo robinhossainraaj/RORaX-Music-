@@ -70,6 +70,7 @@ fun SettingsScreen(
   onSetResumeSession: (Boolean) -> Unit,
   onSetDefaultSpeed: (Float) -> Unit,
   onSetAutoLookup: (Boolean) -> Unit,
+  onSetRomanizeLyrics: (Boolean) -> Unit,
   onSetWifiOnly: (Boolean) -> Unit,
   onRescanLibrary: () -> Unit,
   onRequestOrOpenPermission: () -> Unit,
@@ -146,7 +147,7 @@ fun SettingsScreen(
         ) {
           Text("Lyrics Text Size", style = MaterialTheme.typography.labelLarge)
           Text(
-            text = "${preferences.lyricsFontSizeSp.toInt()} sp",
+            text = "${preferences.lyricsFontSizeSp.toInt()}",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.primary,
           )
@@ -192,12 +193,6 @@ fun SettingsScreen(
             )
           }
         }
-        Spacer(Modifier.height(10.dp))
-        Text(
-          text = "Audio focus and automatic pause on headphone disconnect are managed by AndroidX Media3.",
-          style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
       }
     }
 
@@ -205,23 +200,24 @@ fun SettingsScreen(
     item {
       SettingsGroupCard(title = stringResource(R.string.settings_lyrics)) {
         SettingsSwitchRow(
-          title = "Auto-Lookup Missing Lyrics on Play",
-          subtitle = "Queries LRCLIB when playing a track that has no cached lyrics yet",
+          title = "Find Missing Lyrics Automatically",
+          subtitle = "Look up lyrics when you play a song that doesn't have any yet",
           checked = preferences.autoLyricLookupOnPlay,
           onCheckedChange = onSetAutoLookup,
         )
         Spacer(Modifier.height(12.dp))
         SettingsSwitchRow(
-          title = "Wi-Fi Only Bulk Downloads",
-          subtitle = "Prevents bulk lyric caching from consuming cellular mobile data",
+          title = "Show Lyrics in English Letters",
+          subtitle = "Shows Bangla, Hindi and other languages in Latin letters, like \"Ami tomake bhalobashi\"",
+          checked = preferences.romanizeLyrics,
+          onCheckedChange = onSetRomanizeLyrics,
+        )
+        Spacer(Modifier.height(12.dp))
+        SettingsSwitchRow(
+          title = "Wi-Fi Only Downloads",
+          subtitle = "Don't use mobile data to download lyrics",
           checked = preferences.wifiOnlyBulkDownloads,
           onCheckedChange = onSetWifiOnly,
-        )
-        Spacer(Modifier.height(10.dp))
-        Text(
-          text = "Sources: LRCLIB online lookup and manual local .lrc file import. Real-time scrolling requires embedded LRC timestamps; plain lyrics remain unsynchronized.",
-          style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
       }
     }
@@ -235,11 +231,11 @@ fun SettingsScreen(
           verticalAlignment = Alignment.CenterVertically,
         ) {
           Column(modifier = Modifier.weight(1f)) {
-            Text("Media Permission", style = MaterialTheme.typography.labelLarge)
+            Text("Music Access", style = MaterialTheme.typography.labelLarge)
             Text(
               text =
                 if (hasAudioPermission) {
-                  "${stringResource(R.string.permission_status_granted)} • $songCount local songs indexed"
+                  "${stringResource(R.string.permission_status_granted)} • $songCount songs"
                 } else {
                   stringResource(R.string.permission_status_denied)
                 },
@@ -270,10 +266,10 @@ fun SettingsScreen(
     item {
       SettingsGroupCard(title = stringResource(R.string.settings_storage)) {
         val formattedSize = Formatter.formatShortFileSize(context, cacheSizeBytes)
-        Text("Cached Lyrics Size: $formattedSize", style = MaterialTheme.typography.labelLarge)
+        Text("Lyrics saved on this device: $formattedSize", style = MaterialTheme.typography.labelLarge)
         Spacer(Modifier.height(4.dp))
         Text(
-          text = "Clearing cached lyrics will never delete your device audio files, favorites, or playlists.",
+          text = "Clearing lyrics never deletes your music, favorites or playlists.",
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -285,26 +281,8 @@ fun SettingsScreen(
         ) {
           Icon(Icons.Rounded.DeleteOutline, contentDescription = null)
           Spacer(Modifier.width(8.dp))
-          Text("Clear Cached Lyrics")
+          Text("Clear Downloaded Lyrics")
         }
-      }
-    }
-
-    // AI Features (Optional)
-    item {
-      SettingsGroupCard(title = stringResource(R.string.settings_ai)) {
-        SettingsSwitchRow(
-          title = "Enable Optional AI Lyric Insights",
-          subtitle = "Adds an optional AI menu item in the player and match review sheet",
-          checked = preferences.aiFeaturesEnabled,
-          onCheckedChange = onSetAiEnabled,
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-          text = stringResource(R.string.settings_ai_notice),
-          style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
       }
     }
 
@@ -314,7 +292,7 @@ fun SettingsScreen(
         Text("RORaX Music • Version 1.0", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(4.dp))
         Text(
-          text = "Offline-first local music player with cinematic LRC synchronization.",
+          text = "Your music, with lyrics that move line by line.",
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -322,7 +300,7 @@ fun SettingsScreen(
         OutlinedButton(onClick = { showNoticesDialog = true }) {
           Icon(Icons.Rounded.Info, contentDescription = null)
           Spacer(Modifier.width(8.dp))
-          Text("Open-Source & Data Notices")
+          Text("Credits & Notices")
         }
       }
     }
@@ -341,7 +319,7 @@ fun SettingsScreen(
           },
           colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
         ) {
-          Text("Clear Cache")
+          Text("Clear")
         }
       },
       dismissButton = {
@@ -353,12 +331,12 @@ fun SettingsScreen(
   if (showNoticesDialog) {
     AlertDialog(
       onDismissRequest = { showNoticesDialog = false },
-      title = { Text("Open-Source & Lyric Notices") },
+      title = { Text("Credits & Notices") },
       text = {
         Text(
-          "• Playback powered by AndroidX Media3 ExoPlayer & MediaSession.\n" +
-            "• Local storage powered by Room, DataStore & WorkManager.\n" +
-            "• Online lyric lookup uses the LRCLIB public API. Lyrics remain subject to their respective rights holders; RORaX Music caches lyrics locally solely for personal offline display.",
+          "• Lyrics come from public online lyric services. They belong to their respective owners and are saved on your device for your personal offline use.\n" +
+            "• Song titles and artist names are sent to these services to find the right lyrics. Your music files are never uploaded.\n" +
+            "• RORaX Music is built with open-source Android libraries.",
           style = MaterialTheme.typography.bodySmall,
         )
       },

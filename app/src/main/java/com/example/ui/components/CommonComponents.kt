@@ -211,9 +211,9 @@ fun LyricStatusBadge(status: LyricSyncStatus?, modifier: Modifier = Modifier) {
   val (label, tint) =
     when (status) {
       LyricSyncStatus.CACHED_SYNCED -> "SYNCED" to MaterialTheme.colorScheme.primary
-      LyricSyncStatus.CACHED_PLAIN -> "PLAIN" to MaterialTheme.colorScheme.secondary
+      LyricSyncStatus.CACHED_PLAIN -> "TEXT" to MaterialTheme.colorScheme.secondary
       LyricSyncStatus.NEEDS_REVIEW -> "REVIEW" to MaterialTheme.colorScheme.secondary
-      LyricSyncStatus.INSTRUMENTAL -> "INSTR" to MaterialTheme.colorScheme.onSurfaceVariant
+      LyricSyncStatus.INSTRUMENTAL -> "INSTRUMENTAL" to MaterialTheme.colorScheme.onSurfaceVariant
       LyricSyncStatus.FAILED_RETRYABLE,
       LyricSyncStatus.FAILED_PERMANENT -> "RETRY" to MaterialTheme.colorScheme.error
       else -> return
@@ -346,7 +346,7 @@ fun SongRowItem(
             },
           )
           DropdownMenuItem(
-            text = { Text("Fetch lyrics (LRCLIB)") },
+            text = { Text("Find lyrics") },
             leadingIcon = { Icon(Icons.Rounded.Lyrics, null) },
             onClick = {
               menuExpanded = false

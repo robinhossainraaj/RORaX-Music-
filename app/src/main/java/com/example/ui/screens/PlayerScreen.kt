@@ -81,6 +81,7 @@ import androidx.compose.ui.unit.sp
 import androidx.media3.common.Player
 import com.example.R
 import com.example.lyrics.LrcParser
+import com.example.lyrics.Romanizer
 import com.example.model.LyricRecord
 import com.example.model.LyricSyncStatus
 import com.example.model.Song
@@ -110,10 +111,10 @@ fun PlayerScreen(
   onRemoveQueueIndex: (Int) -> Unit,
   onFetchLyrics: (Song) -> Unit,
   onOpenManualSearch: (Song) -> Unit,
-  onApplyCandidate: (Long, com.example.model.LrclibCandidate) -> Unit,
+  onApplyCandidate: (Long, com.example.model.LyricCandidate) -> Unit,
   onImportLrc: (Song, Uri) -> Unit,
   onRequestAiExplain: (Song, String, List<String>) -> Unit,
-  onRequestAiSuggest: (Song, List<com.example.model.LrclibCandidate>) -> Unit,
+  onRequestAiSuggest: (Song, List<com.example.model.LyricCandidate>) -> Unit,
 ) {
   val song = playbackState.currentSong
   val primary = MaterialTheme.colorScheme.primary
@@ -133,8 +134,22 @@ fun PlayerScreen(
       }
     }
 
+  // Lyrics are cached exactly as received; the Latin-letter version is produced for display only.
+  val romanize = preferences.romanizeLyrics
   val parsedLrc =
-    remember(lyricRecord?.syncedLyricsLrc) { LrcParser.parse(lyricRecord?.syncedLyricsLrc) }
+    remember(lyricRecord?.syncedLyricsLrc, romanize) {
+      val parsed = LrcParser.parse(lyricRecord?.syncedLyricsLrc)
+      if (romanize) {
+        parsed.copy(lines = parsed.lines.map { it.copy(text = Romanizer.romanize(it.text)) })
+      } else {
+        parsed
+      }
+    }
+  val plainLyricsText =
+    remember(lyricRecord?.plainLyrics, romanize) {
+      val plain = lyricRecord?.plainLyrics.orEmpty()
+      if (romanize) Romanizer.romanize(plain) else plain
+    }
 
   val effectivePositionMs =
     if (isDraggingSlider && playbackState.durationMs > 0L) {
@@ -447,7 +462,7 @@ fun PlayerScreen(
               }
               Spacer(Modifier.height(16.dp))
               Text(
-                text = lyricRecord?.plainLyrics.orEmpty(),
+                text = plainLyricsText,
                 style =
                   MaterialTheme.typography.bodyLarge.copy(
                     fontSize = (preferences.lyricsFontSizeSp * 0.85f).sp,
@@ -470,7 +485,7 @@ fun PlayerScreen(
                 Spacer(Modifier.height(10.dp))
                 Text("Instrumental Track", style = MaterialTheme.typography.titleLarge)
                 Text(
-                  "No vocals listed for this recording.",
+                  "This song has no lyrics.",
                   style = MaterialTheme.typography.bodySmall,
                   color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

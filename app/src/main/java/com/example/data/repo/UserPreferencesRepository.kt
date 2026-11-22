@@ -27,6 +27,7 @@ class UserPreferencesRepository(private val context: Context) {
     val LYRICS_FONT_SIZE = floatPreferencesKey("lyrics_font_size_sp")
     val REDUCED_MOTION = booleanPreferencesKey("reduced_motion")
     val AUTO_LYRIC_LOOKUP = booleanPreferencesKey("auto_lyric_lookup_on_play")
+    val ROMANIZE_LYRICS = booleanPreferencesKey("romanize_lyrics")
     val WIFI_ONLY_DOWNLOADS = booleanPreferencesKey("wifi_only_bulk_downloads")
     val RESUME_SESSION = booleanPreferencesKey("resume_last_session")
     val DEFAULT_SPEED = floatPreferencesKey("default_playback_speed")
@@ -51,6 +52,7 @@ class UserPreferencesRepository(private val context: Context) {
         lyricsFontSizeSp = (prefs[Keys.LYRICS_FONT_SIZE] ?: 22f).coerceIn(16f, 34f),
         reducedMotion = prefs[Keys.REDUCED_MOTION] ?: false,
         autoLyricLookupOnPlay = prefs[Keys.AUTO_LYRIC_LOOKUP] ?: true,
+        romanizeLyrics = prefs[Keys.ROMANIZE_LYRICS] ?: true,
         wifiOnlyBulkDownloads = prefs[Keys.WIFI_ONLY_DOWNLOADS] ?: true,
         resumeLastSession = prefs[Keys.RESUME_SESSION] ?: true,
         defaultPlaybackSpeed = (prefs[Keys.DEFAULT_SPEED] ?: 1.0f).coerceIn(0.5f, 2.0f),
@@ -80,6 +82,10 @@ class UserPreferencesRepository(private val context: Context) {
 
   suspend fun setAutoLyricLookup(enabled: Boolean) {
     context.roraxPrefsDataStore.edit { it[Keys.AUTO_LYRIC_LOOKUP] = enabled }
+  }
+
+  suspend fun setRomanizeLyrics(enabled: Boolean) {
+    context.roraxPrefsDataStore.edit { it[Keys.ROMANIZE_LYRICS] = enabled }
   }
 
   suspend fun setWifiOnlyDownloads(enabled: Boolean) {
