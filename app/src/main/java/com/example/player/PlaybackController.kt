@@ -197,6 +197,18 @@ class PlaybackController(
     }
   }
 
+  /** Jumps to [positionMs] and makes sure playback is running (used when tapping a lyric line). */
+  fun seekToAndPlay(positionMs: Long) {
+    val mc = controller ?: return
+    val clamped = positionMs.coerceAtLeast(0L)
+    if (mc.playbackState == Player.STATE_IDLE && mc.mediaItemCount > 0) {
+      mc.prepare()
+    }
+    mc.seekTo(clamped)
+    if (!mc.isPlaying) mc.play()
+    _state.update { it.copy(positionMs = clamped, isPlaying = true) }
+  }
+
   fun seekTo(positionMs: Long) {
     val mc = controller ?: return
     val clamped = positionMs.coerceAtLeast(0L)

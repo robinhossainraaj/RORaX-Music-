@@ -101,6 +101,7 @@ fun PlayerScreen(
   onNavigateBack: () -> Unit,
   onTogglePlayPause: () -> Unit,
   onSeekTo: (Long) -> Unit,
+  onSeekToLine: (Long) -> Unit = onSeekTo,
   onNext: () -> Unit,
   onPrevious: () -> Unit,
   onToggleShuffle: () -> Unit,
@@ -431,7 +432,7 @@ fun PlayerScreen(
                   modifier =
                     Modifier.fillMaxWidth()
                       .clip(RoundedCornerShape(12.dp))
-                      .clickable { onSeekTo(line.timestampMs) }
+                      .clickable { onSeekToLine(line.timestampMs) }
                       .padding(vertical = 4.dp, horizontal = 4.dp)
                       .graphicsLayer {
                         scaleX = scale

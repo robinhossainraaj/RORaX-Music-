@@ -424,6 +424,7 @@ fun RoraxApp(
                     onNavigateBack = { navController.popBackStack() },
                     onTogglePlayPause = { viewModel.playbackController.togglePlayPause() },
                     onSeekTo = { pos -> viewModel.playbackController.seekTo(pos) },
+                    onSeekToLine = { pos -> viewModel.playbackController.seekToAndPlay(pos) },
                     onNext = { viewModel.playbackController.next() },
                     onPrevious = { viewModel.playbackController.previous() },
                     onToggleShuffle = { viewModel.playbackController.toggleShuffle() },

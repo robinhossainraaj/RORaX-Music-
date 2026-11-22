@@ -208,7 +208,7 @@ fun SettingsScreen(
         Spacer(Modifier.height(12.dp))
         SettingsSwitchRow(
           title = "Show Lyrics in English Letters",
-          subtitle = "Shows Bangla, Hindi and other languages in Latin letters, like \"Ami tomake bhalobashi\"",
+          subtitle = "Off by default: lyrics show in their original language and script. Turn on to read Bangla, Hindi and others in Latin letters, like \"Ami tomake bhalobashi\"",
           checked = preferences.romanizeLyrics,
           onCheckedChange = onSetRomanizeLyrics,
         )
