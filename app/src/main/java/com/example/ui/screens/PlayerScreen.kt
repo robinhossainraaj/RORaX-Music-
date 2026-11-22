@@ -82,6 +82,7 @@ import androidx.media3.common.Player
 import com.example.R
 import com.example.lyrics.LrcParser
 import com.example.lyrics.Romanizer
+import com.example.ui.components.BeatVisualizerPanel
 import com.example.model.LyricRecord
 import com.example.model.LyricSyncStatus
 import com.example.model.Song
@@ -475,62 +476,55 @@ fun PlayerScreen(
           }
 
           lyricRecord?.status == LyricSyncStatus.INSTRUMENTAL -> {
-            Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-              Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(
-                  Icons.Rounded.Lyrics,
-                  contentDescription = null,
-                  tint = primary,
-                  modifier = Modifier.size(42.dp),
-                )
-                Spacer(Modifier.height(10.dp))
-                Text("Instrumental Track", style = MaterialTheme.typography.titleLarge)
-                Text(
-                  "This song has no lyrics.",
-                  style = MaterialTheme.typography.bodySmall,
-                  color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-              }
-            }
+            BeatVisualizerPanel(
+              song = song,
+              isPlaying = playbackState.isPlaying,
+              reducedMotion = preferences.reducedMotion,
+              accentFallback = primary,
+              note = "Instrumental track \u00B7 no lyrics",
+              modifier = Modifier.fillMaxSize(),
+            )
           }
 
           else -> {
-            Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-              Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(
-                  Icons.Rounded.Lyrics,
-                  contentDescription = null,
-                  tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                  modifier = Modifier.size(42.dp),
-                )
-                Spacer(Modifier.height(10.dp))
-                Text(
-                  text = stringResource(R.string.player_no_lyrics_title),
-                  style = MaterialTheme.typography.titleLarge,
-                  textAlign = TextAlign.Center,
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                  text = stringResource(R.string.player_no_lyrics_body),
-                  style = MaterialTheme.typography.bodySmall,
-                  color = MaterialTheme.colorScheme.onSurfaceVariant,
-                  textAlign = TextAlign.Center,
-                )
-                Spacer(Modifier.height(16.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                  Button(onClick = { onOpenManualSearch(song) }) {
-                    Icon(Icons.Rounded.Search, contentDescription = null)
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.player_search_lyrics))
-                  }
-                  OutlinedButton(onClick = { lrcLauncher.launch(arrayOf("*/*")) }) {
-                    Icon(Icons.Rounded.FileOpen, contentDescription = null)
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.player_import_lrc))
-                  }
+            BeatVisualizerPanel(
+              song = song,
+              isPlaying = playbackState.isPlaying,
+              reducedMotion = preferences.reducedMotion,
+              accentFallback = primary,
+              note = if (isLookingUpLyrics) "Looking for lyrics\u2026" else "No lyrics found yet",
+              modifier = Modifier.fillMaxSize(),
+              actions = {
+                Button(
+                  onClick = { onOpenManualSearch(song) },
+                  modifier = Modifier.weight(1f),
+                  contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                ) {
+                  Icon(Icons.Rounded.Search, contentDescription = null, modifier = Modifier.size(16.dp))
+                  Spacer(Modifier.width(6.dp))
+                  Text(
+                    stringResource(R.string.player_search_lyrics),
+                    style = MaterialTheme.typography.labelMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                  )
                 }
-              }
-            }
+                OutlinedButton(
+                  onClick = { lrcLauncher.launch(arrayOf("*/*")) },
+                  modifier = Modifier.weight(1f),
+                  contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                ) {
+                  Icon(Icons.Rounded.FileOpen, contentDescription = null, modifier = Modifier.size(16.dp))
+                  Spacer(Modifier.width(6.dp))
+                  Text(
+                    stringResource(R.string.player_import_lrc),
+                    style = MaterialTheme.typography.labelMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                  )
+                }
+              },
+            )
           }
         }
       }
