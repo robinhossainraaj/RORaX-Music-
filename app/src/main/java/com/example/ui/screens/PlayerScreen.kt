@@ -214,98 +214,7 @@ fun PlayerScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
-      // 1. Top Bar
-      Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-      ) {
-        IconButton(
-          onClick = onNavigateBack,
-          modifier = Modifier.minimumInteractiveComponentSize().testTag("player_back_button"),
-        ) {
-          Icon(
-            imageVector = Icons.Rounded.KeyboardArrowDown,
-            contentDescription = stringResource(R.string.cd_back),
-            modifier = Modifier.size(30.dp),
-          )
-        }
-        Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-          Text(
-            text = "NOW PLAYING",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-          Text(
-            text = song.album,
-            style = MaterialTheme.typography.labelMedium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-          )
-        }
-        Box {
-          IconButton(
-            onClick = { showMenu = true },
-            modifier = Modifier.minimumInteractiveComponentSize().testTag("player_more_button"),
-          ) {
-            Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.cd_more_options))
-          }
-          DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-            DropdownMenuItem(
-              text = { Text(stringResource(R.string.player_search_lyrics)) },
-              leadingIcon = { Icon(Icons.Rounded.Search, null) },
-              onClick = {
-                showMenu = false
-                onOpenManualSearch(song)
-              },
-            )
-            DropdownMenuItem(
-              text = { Text(stringResource(R.string.player_import_lrc)) },
-              leadingIcon = { Icon(Icons.Rounded.FileOpen, null) },
-              onClick = {
-                showMenu = false
-                lrcLauncher.launch(arrayOf("*/*"))
-              },
-            )
-            DropdownMenuItem(
-              text = { Text("Refresh lyrics") },
-              leadingIcon = { Icon(Icons.Rounded.Refresh, null) },
-              onClick = {
-                showMenu = false
-                onFetchLyrics(song)
-              },
-            )
-            if (preferences.aiFeaturesEnabled) {
-              val activeSnippet =
-                if (activeLineIndex in parsedLrc.lines.indices) {
-                  parsedLrc.lines[activeLineIndex].text
-                } else {
-                  song.title
-                }
-              val contextSnippet =
-                if (activeLineIndex >= 0) {
-                  parsedLrc.lines
-                    .subList(
-                      (activeLineIndex - 1).coerceAtLeast(0),
-                      (activeLineIndex + 2).coerceAtMost(parsedLrc.lines.size),
-                    )
-                    .map { it.text }
-                } else {
-                  emptyList()
-                }
-              DropdownMenuItem(
-                text = { Text(stringResource(R.string.player_ai_explain)) },
-                leadingIcon = { Icon(Icons.Rounded.AutoAwesome, null) },
-                onClick = {
-                  showMenu = false
-                  onRequestAiExplain(song, activeSnippet, contextSnippet)
-                },
-              )
-            }
-          }
-        }
-      }
-
-      Spacer(Modifier.height(8.dp))
+      Spacer(Modifier.height(12.dp))
 
       // 2. Compact Track Identity Header
       Row(
@@ -432,8 +341,6 @@ fun PlayerScreen(
                   color = color,
                   modifier =
                     Modifier.fillMaxWidth()
-                      .clip(RoundedCornerShape(12.dp))
-                      .clickable { onSeekToLine(line.timestampMs) }
                       .padding(vertical = 4.dp, horizontal = 4.dp)
                       .graphicsLayer {
                         scaleX = scale
@@ -494,36 +401,6 @@ fun PlayerScreen(
               accentFallback = primary,
               note = if (isLookingUpLyrics) "Looking for lyrics\u2026" else "No lyrics found yet",
               modifier = Modifier.fillMaxSize(),
-              actions = {
-                Button(
-                  onClick = { onOpenManualSearch(song) },
-                  modifier = Modifier.weight(1f),
-                  contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                ) {
-                  Icon(Icons.Rounded.Search, contentDescription = null, modifier = Modifier.size(16.dp))
-                  Spacer(Modifier.width(6.dp))
-                  Text(
-                    stringResource(R.string.player_search_lyrics),
-                    style = MaterialTheme.typography.labelMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                  )
-                }
-                OutlinedButton(
-                  onClick = { lrcLauncher.launch(arrayOf("*/*")) },
-                  modifier = Modifier.weight(1f),
-                  contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                ) {
-                  Icon(Icons.Rounded.FileOpen, contentDescription = null, modifier = Modifier.size(16.dp))
-                  Spacer(Modifier.width(6.dp))
-                  Text(
-                    stringResource(R.string.player_import_lrc),
-                    style = MaterialTheme.typography.labelMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                  )
-                }
-              },
             )
           }
         }
@@ -649,51 +526,6 @@ fun PlayerScreen(
         }
       }
 
-      // 6. Secondary Utility Row (Speed + Queue)
-      Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-      ) {
-        val speeds = listOf(0.75f, 1.0f, 1.25f, 1.5f)
-        val nextSpeed =
-          speeds[(speeds.indexOfFirst { kotlin.math.abs(it - playbackState.playbackSpeed) < 0.05f } + 1) % speeds.size]
-
-        Surface(
-          onClick = { onChangeSpeed(nextSpeed) },
-          shape = RoundedCornerShape(10.dp),
-          color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        ) {
-          Text(
-            text = "${playbackState.playbackSpeed}x",
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-          )
-        }
-
-        Surface(
-          onClick = { showQueueSheet = true },
-          shape = RoundedCornerShape(10.dp),
-          color = MaterialTheme.colorScheme.surfaceContainerHigh,
-          modifier = Modifier.testTag("player_queue_button"),
-        ) {
-          Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-          ) {
-            Icon(
-              Icons.AutoMirrored.Rounded.QueueMusic,
-              contentDescription = stringResource(R.string.cd_queue),
-              modifier = Modifier.size(16.dp),
-            )
-            Spacer(Modifier.width(6.dp))
-            Text(
-              text = "Queue (${playbackState.queue.size})",
-              style = MaterialTheme.typography.labelMedium,
-            )
-          }
-        }
-      }
     }
   }
 
