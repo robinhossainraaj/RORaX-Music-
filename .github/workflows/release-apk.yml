@@ -29,16 +29,14 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      # The action's default package list includes the long-removed "tools" package,
+      # which makes sdkmanager fail. The app also compiles against API 36.1
+      # (compileSdk = release(36) { minorApiLevel = 1 }), which the runner image lacks,
+      # so install exactly what the build needs.
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
-
-      # The app compiles against API 36.1 (compileSdk = release(36) { minorApiLevel = 1 }),
-      # which the runner's SDK does not ship with. Install it up front so Gradle doesn't
-      # fail trying to auto-download it.
-      - name: Install required SDK packages
-        run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "platform-tools" "platforms;android-36.1"
+        with:
+          packages: "platform-tools platforms;android-36.1"
 
       # The project does not include a Gradle wrapper, so install the version it expects.
       - name: Set up Gradle
