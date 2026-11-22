@@ -32,6 +32,14 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
+      # The app compiles against API 36.1 (compileSdk = release(36) { minorApiLevel = 1 }),
+      # which the runner's SDK does not ship with. Install it up front so Gradle doesn't
+      # fail trying to auto-download it.
+      - name: Install required SDK packages
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platform-tools" "platforms;android-36.1"
+
       # The project does not include a Gradle wrapper, so install the version it expects.
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
