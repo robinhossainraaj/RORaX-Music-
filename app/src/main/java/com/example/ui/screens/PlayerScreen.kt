@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.flow.StateFlow
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -100,6 +102,7 @@ import com.example.ui.components.ReviewCandidatesSheet
 @Composable
 fun PlayerScreen(
   playbackState: PlaybackUiState,
+  positionFlow: StateFlow<Long>,
   livePositionMs: () -> Long,
   lyricRecord: LyricRecord?,
   isFavorite: Boolean,
@@ -158,17 +161,10 @@ fun PlayerScreen(
       if (romanize) Romanizer.romanize(plain) else plain
     }
 
-  val effectivePositionMs =
-    if (isDraggingSlider && playbackState.durationMs > 0L) {
-      (sliderDragFraction * playbackState.durationMs).toLong()
-    } else {
-      playbackState.positionMs
-    }
-
   // The lyric clock reads the player's real position on every frame while the song plays, so the
   // highlighted line is never a poll behind the audio. Only the line number is observed, so the
   // screen redraws when the line changes, not 60 times a second.
-  var lyricPositionMs by remember { mutableLongStateOf(playbackState.positionMs) }
+  var lyricPositionMs by remember { mutableLongStateOf(livePositionMs()) }
   val isPlayingNow by rememberUpdatedState(playbackState.isPlaying)
   val durationNow by rememberUpdatedState(playbackState.durationMs)
   val lyricOffsetNow by rememberUpdatedState(preferences.lyricsOffsetMs)
@@ -565,44 +561,23 @@ fun PlayerScreen(
 
       Spacer(Modifier.height(12.dp))
 
-      // 4. Seek Bar & Timestamps
-      val durationMs = playbackState.durationMs.coerceAtLeast(1L)
-      val currentFraction =
-        if (isDraggingSlider) sliderDragFraction
-        else (playbackState.positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
-
-      Slider(
-        value = currentFraction,
-        onValueChange = { frac ->
+      // 4. Seek Bar & Timestamps. Watches the position itself so only this part redraws.
+      SeekSection(
+        positionFlow = positionFlow,
+        durationMs = playbackState.durationMs,
+        isDragging = isDraggingSlider,
+        dragFraction = sliderDragFraction,
+        onDrag = { fraction ->
           isDraggingSlider = true
-          sliderDragFraction = frac
+          sliderDragFraction = fraction
         },
-        onValueChangeFinished = {
-          val targetMs = (sliderDragFraction * durationMs).toLong()
+        onDragFinished = {
+          val targetMs = (sliderDragFraction * playbackState.durationMs.coerceAtLeast(1L)).toLong()
           isDraggingSlider = false
           onSeekTo(targetMs)
         },
-        colors =
-          SliderDefaults.colors(
-            thumbColor = primary,
-            activeTrackColor = primary,
-            inactiveTrackColor = MaterialTheme.colorScheme.outline,
-          ),
-        modifier = Modifier.fillMaxWidth().testTag("player_seek_slider"),
+        accent = primary,
       )
-
-      Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(
-          text = LrcParser.formatTime(effectivePositionMs),
-          style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-          text = LrcParser.formatTime(playbackState.durationMs),
-          style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-      }
 
       Spacer(Modifier.height(6.dp))
 
@@ -753,6 +728,50 @@ fun PlayerScreen(
       onOpenManualSearch = { onOpenManualSearch(song) },
       onRequestAiSuggest = { onRequestAiSuggest(song, lyricRecord.candidates) },
       onDismiss = { showReviewSheet = false },
+    )
+  }
+}
+
+@Composable
+private fun SeekSection(
+  positionFlow: StateFlow<Long>,
+  durationMs: Long,
+  isDragging: Boolean,
+  dragFraction: Float,
+  onDrag: (Float) -> Unit,
+  onDragFinished: () -> Unit,
+  accent: Color,
+) {
+  val positionMs by positionFlow.collectAsStateWithLifecycle()
+  val safeDurationMs = durationMs.coerceAtLeast(1L)
+  val fraction =
+    if (isDragging) dragFraction
+    else (positionMs.toFloat() / safeDurationMs.toFloat()).coerceIn(0f, 1f)
+  val shownMs = if (isDragging) (dragFraction * safeDurationMs).toLong() else positionMs
+
+  Slider(
+    value = fraction,
+    onValueChange = onDrag,
+    onValueChangeFinished = onDragFinished,
+    colors =
+      SliderDefaults.colors(
+        thumbColor = accent,
+        activeTrackColor = accent,
+        inactiveTrackColor = MaterialTheme.colorScheme.outline,
+      ),
+    modifier = Modifier.fillMaxWidth().testTag("player_seek_slider"),
+  )
+
+  Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+    Text(
+      text = LrcParser.formatTime(shownMs),
+      style = MaterialTheme.typography.labelSmall,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Text(
+      text = LrcParser.formatTime(durationMs),
+      style = MaterialTheme.typography.labelSmall,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
   }
 }

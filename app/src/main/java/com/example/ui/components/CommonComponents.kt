@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.flow.StateFlow
 import android.net.Uri
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -362,15 +364,17 @@ fun SongRowItem(
 @Composable
 fun MiniPlayerBar(
   playbackState: PlaybackUiState,
+  positionFlow: StateFlow<Long>,
   onOpenPlayer: () -> Unit,
   onTogglePlayPause: () -> Unit,
   onNext: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
   val song = playbackState.currentSong ?: return
+  val positionMs by positionFlow.collectAsStateWithLifecycle()
   val progress =
     if (playbackState.durationMs > 0L) {
-      (playbackState.positionMs.toFloat() / playbackState.durationMs.toFloat()).coerceIn(0f, 1f)
+      (positionMs.toFloat() / playbackState.durationMs.toFloat()).coerceIn(0f, 1f)
     } else {
       0f
     }

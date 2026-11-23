@@ -33,7 +33,6 @@ data class PlaybackUiState(
   val queue: List<Song> = emptyList(),
   val currentIndex: Int = -1,
   val isPlaying: Boolean = false,
-  val positionMs: Long = 0L,
   val durationMs: Long = 0L,
   val shuffleEnabled: Boolean = false,
   val repeatMode: Int = Player.REPEAT_MODE_OFF,
@@ -42,7 +41,7 @@ data class PlaybackUiState(
   val isConnected: Boolean = false,
 )
 
-private const val POSITION_POLL_MS = 200L
+private const val POSITION_POLL_MS = 100L
 
 class PlaybackController(
   private val context: Context,
@@ -50,6 +49,11 @@ class PlaybackController(
   private val preferencesRepository: UserPreferencesRepository,
 ) {
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+  // Position changes many times a second. Keeping it out of [PlaybackUiState] means the screens
+  // that do not show it are not redrawn on every tick.
+  private val _positionMs = MutableStateFlow(0L)
+  val positionMs: StateFlow<Long> = _positionMs.asStateFlow()
 
   private val _state = MutableStateFlow(PlaybackUiState())
   val state: StateFlow<PlaybackUiState> = _state.asStateFlow()
@@ -201,13 +205,13 @@ class PlaybackController(
 
   /** The player's exact position right now, read on demand rather than from the 100 ms poll. */
   fun livePositionMs(): Long =
-    controller?.currentPosition?.coerceAtLeast(0L) ?: _state.value.positionMs
+    controller?.currentPosition?.coerceAtLeast(0L) ?: _positionMs.value
 
   fun seekTo(positionMs: Long) {
     val mc = controller ?: return
     val clamped = positionMs.coerceAtLeast(0L)
     mc.seekTo(clamped)
-    _state.update { it.copy(positionMs = clamped) }
+    _positionMs.value = clamped
   }
 
   fun seekToQueueIndex(index: Int) {
@@ -288,14 +292,14 @@ class PlaybackController(
           if (mc != null) {
             val pos = mc.currentPosition.coerceAtLeast(0L)
             val dur = mc.duration.takeIf { it > 0L } ?: _state.value.currentSong?.durationMs ?: 0L
-            _state.update { it.copy(positionMs = pos, durationMs = dur, isPlaying = mc.isPlaying) }
+            _positionMs.value = pos
+            // Equal values are not re-emitted, so this only notifies when something changed.
+            _state.update { it.copy(durationMs = dur, isPlaying = mc.isPlaying) }
             sessionSaveCounter++
-            if (sessionSaveCounter % 15 == 0) {
+            if (sessionSaveCounter % 30 == 0) {
               persistSessionSnapshot()
             }
           }
-          // The whole UI observes this state, so it is refreshed 5 times a second, not 10. Lyrics
-          // use their own live clock (livePositionMs) and do not depend on this rate.
           delay(POSITION_POLL_MS)
         }
       }
@@ -329,6 +333,7 @@ class PlaybackController(
 
     val dur = mc.duration.takeIf { it > 0L } ?: song?.durationMs ?: 0L
     val pos = mc.currentPosition.coerceAtLeast(0L)
+    _positionMs.value = pos
 
     _state.update {
       it.copy(
@@ -336,7 +341,6 @@ class PlaybackController(
         queue = resolvedQueue,
         currentIndex = index,
         isPlaying = mc.isPlaying,
-        positionMs = pos,
         durationMs = dur,
         shuffleEnabled = mc.shuffleModeEnabled,
         repeatMode = mc.repeatMode,
@@ -351,7 +355,7 @@ class PlaybackController(
     scope.launch {
       preferencesRepository.savePlaybackSession(
         songId = song.id,
-        positionMs = snapshot.positionMs,
+        positionMs = _positionMs.value,
         shuffleEnabled = snapshot.shuffleEnabled,
         repeatMode = snapshot.repeatMode,
       )

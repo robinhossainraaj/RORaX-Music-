@@ -235,6 +235,7 @@ fun RoraxApp(
               if (playbackState.currentSong != null) {
                 MiniPlayerBar(
                   playbackState = playbackState,
+                  positionFlow = viewModel.playbackController.positionMs,
                   onOpenPlayer = { navController.navigate(PlayerRoute) },
                   onTogglePlayPause = { viewModel.playbackController.togglePlayPause() },
                   onNext = { viewModel.playbackController.next() },
@@ -424,6 +425,7 @@ fun RoraxApp(
                     isLookingUpLyrics = activeSongId != null && activeSongId in inFlightSongIds,
                     onNavigateBack = { navController.popBackStack() },
                     onTogglePlayPause = { viewModel.playbackController.togglePlayPause() },
+                    positionFlow = viewModel.playbackController.positionMs,
                     livePositionMs = { viewModel.playbackController.livePositionMs() },
                     onSeekTo = { pos -> viewModel.playbackController.seekTo(pos) },
                     onNext = { viewModel.playbackController.next() },
@@ -448,6 +450,7 @@ fun RoraxApp(
             if (showMainChrome && useNavRail && playbackState.currentSong != null) {
               MiniPlayerBar(
                 playbackState = playbackState,
+                positionFlow = viewModel.playbackController.positionMs,
                 onOpenPlayer = { navController.navigate(PlayerRoute) },
                 onTogglePlayPause = { viewModel.playbackController.togglePlayPause() },
                 onNext = { viewModel.playbackController.next() },
