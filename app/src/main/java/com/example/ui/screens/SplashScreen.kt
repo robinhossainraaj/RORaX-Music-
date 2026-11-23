@@ -73,13 +73,6 @@ fun SplashScreen(
         fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.onBackground,
       )
-      Spacer(Modifier.height(8.dp))
-      Text(
-        text = stringResource(R.string.splash_tagline),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        textAlign = TextAlign.Center,
-      )
       Spacer(Modifier.height(32.dp))
 
       when (initState) {
@@ -89,12 +82,6 @@ fun SplashScreen(
             modifier = Modifier.size(26.dp),
             strokeWidth = 2.5.dp,
             color = primary,
-          )
-          Spacer(Modifier.height(10.dp))
-          Text(
-            text = stringResource(R.string.splash_initializing),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
         }
         is SplashInitState.Error -> {

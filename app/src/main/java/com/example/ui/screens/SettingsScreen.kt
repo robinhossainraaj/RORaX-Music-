@@ -157,15 +157,9 @@ fun SettingsScreen(
           onValueChange = onSetLyricsFontSize,
           valueRange = 16f..34f,
         )
-        Text(
-          text = "Sample active lyric line",
-          style = MaterialTheme.typography.titleMedium.copy(fontSize = preferences.lyricsFontSizeSp.sp),
-          color = MaterialTheme.colorScheme.primary,
-        )
         Spacer(Modifier.height(12.dp))
         SettingsSwitchRow(
           title = "Reduced Motion",
-          subtitle = "Minimize lyric transitions and logo pulse animations",
           checked = preferences.reducedMotion,
           onCheckedChange = onSetReducedMotion,
         )
@@ -177,7 +171,6 @@ fun SettingsScreen(
       SettingsGroupCard(title = stringResource(R.string.settings_playback)) {
         SettingsSwitchRow(
           title = "Resume Last Session",
-          subtitle = "Restore last track, position, shuffle, and repeat mode on launch",
           checked = preferences.resumeLastSession,
           onCheckedChange = onSetResumeSession,
         )
@@ -201,21 +194,18 @@ fun SettingsScreen(
       SettingsGroupCard(title = stringResource(R.string.settings_lyrics)) {
         SettingsSwitchRow(
           title = "Find Missing Lyrics Automatically",
-          subtitle = "Look up lyrics when you play a song that doesn't have any yet",
           checked = preferences.autoLyricLookupOnPlay,
           onCheckedChange = onSetAutoLookup,
         )
         Spacer(Modifier.height(12.dp))
         SettingsSwitchRow(
-          title = "Show Lyrics in English Letters",
-          subtitle = "Off by default: lyrics show in their original language and script. Turn on to read Bangla, Hindi and others in Latin letters, like \"Ami tomake bhalobashi\"",
+          title = "Lyrics in English Letters",
           checked = preferences.romanizeLyrics,
           onCheckedChange = onSetRomanizeLyrics,
         )
         Spacer(Modifier.height(12.dp))
         SettingsSwitchRow(
           title = "Wi-Fi Only Downloads",
-          subtitle = "Don't use mobile data to download lyrics",
           checked = preferences.wifiOnlyBulkDownloads,
           onCheckedChange = onSetWifiOnly,
         )
@@ -267,12 +257,6 @@ fun SettingsScreen(
       SettingsGroupCard(title = stringResource(R.string.settings_storage)) {
         val formattedSize = Formatter.formatShortFileSize(context, cacheSizeBytes)
         Text("Lyrics saved on this device: $formattedSize", style = MaterialTheme.typography.labelLarge)
-        Spacer(Modifier.height(4.dp))
-        Text(
-          text = "Clearing lyrics never deletes your music, favorites or playlists.",
-          style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
         Spacer(Modifier.height(12.dp))
         OutlinedButton(
           onClick = { showClearCacheDialog = true },
@@ -290,12 +274,6 @@ fun SettingsScreen(
     item {
       SettingsGroupCard(title = stringResource(R.string.settings_about)) {
         Text("RORaX Music • Version 1.0", style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(4.dp))
-        Text(
-          text = "Your music, with lyrics that move line by line.",
-          style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
         Spacer(Modifier.height(10.dp))
         OutlinedButton(onClick = { showNoticesDialog = true }) {
           Icon(Icons.Rounded.Info, contentDescription = null)
@@ -373,7 +351,6 @@ private fun SettingsGroupCard(
 @Composable
 private fun SettingsSwitchRow(
   title: String,
-  subtitle: String,
   checked: Boolean,
   onCheckedChange: (Boolean) -> Unit,
 ) {
@@ -383,11 +360,6 @@ private fun SettingsSwitchRow(
   ) {
     Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
       Text(title, style = MaterialTheme.typography.labelLarge)
-      Text(
-        subtitle,
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-      )
     }
     Switch(checked = checked, onCheckedChange = onCheckedChange)
   }

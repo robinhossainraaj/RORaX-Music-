@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
@@ -79,6 +80,20 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.common.Player
+import android.os.Build
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontFamily
+import coil.compose.AsyncImage
+import kotlinx.coroutines.delay
 import com.example.R
 import com.example.lyrics.LrcParser
 import com.example.lyrics.Romanizer
@@ -102,39 +117,26 @@ fun PlayerScreen(
   onNavigateBack: () -> Unit,
   onTogglePlayPause: () -> Unit,
   onSeekTo: (Long) -> Unit,
-  onSeekToLine: (Long) -> Unit = onSeekTo,
   onNext: () -> Unit,
   onPrevious: () -> Unit,
   onToggleShuffle: () -> Unit,
   onCycleRepeat: () -> Unit,
-  onChangeSpeed: (Float) -> Unit,
   onToggleFavorite: (Long) -> Unit,
-  onSelectQueueIndex: (Int) -> Unit,
-  onRemoveQueueIndex: (Int) -> Unit,
-  onFetchLyrics: (Song) -> Unit,
   onOpenManualSearch: (Song) -> Unit,
   onApplyCandidate: (Long, com.example.model.LyricCandidate) -> Unit,
-  onImportLrc: (Song, Uri) -> Unit,
-  onRequestAiExplain: (Song, String, List<String>) -> Unit,
   onRequestAiSuggest: (Song, List<com.example.model.LyricCandidate>) -> Unit,
 ) {
   val song = playbackState.currentSong
   val primary = MaterialTheme.colorScheme.primary
   val secondary = MaterialTheme.colorScheme.secondary
-  val bg = MaterialTheme.colorScheme.background
+  val ink = Color(0xFF0A0610)
 
-  var showMenu by remember { mutableStateOf(false) }
-  var showQueueSheet by remember { mutableStateOf(false) }
   var showReviewSheet by remember { mutableStateOf(false) }
   var isDraggingSlider by remember { mutableStateOf(false) }
   var sliderDragFraction by remember { mutableFloatStateOf(0f) }
-
-  val lrcLauncher =
-    rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-      if (uri != null && song != null) {
-        onImportLrc(song, uri)
-      }
-    }
+  // After a seek, keep showing the position the user chose until the player has caught up, so
+  // the lyrics never flash back to the old line.
+  var pendingSeekMs by remember { mutableStateOf<Long?>(null) }
 
   // Lyrics are cached exactly as received; the Latin-letter version is produced for display only.
   val romanize = preferences.romanizeLyrics
@@ -153,11 +155,26 @@ fun PlayerScreen(
       if (romanize) Romanizer.romanize(plain) else plain
     }
 
+  val pending = pendingSeekMs
+  LaunchedEffect(pending, playbackState.positionMs) {
+    if (pending != null && kotlin.math.abs(playbackState.positionMs - pending) < 1_500L) {
+      pendingSeekMs = null
+    }
+  }
+  LaunchedEffect(pending) {
+    if (pending != null) {
+      delay(1_500L)
+      pendingSeekMs = null
+    }
+  }
+  LaunchedEffect(song?.id) { pendingSeekMs = null }
+
   val effectivePositionMs =
-    if (isDraggingSlider && playbackState.durationMs > 0L) {
-      (sliderDragFraction * playbackState.durationMs).toLong()
-    } else {
-      playbackState.positionMs
+    when {
+      isDraggingSlider && playbackState.durationMs > 0L ->
+        (sliderDragFraction * playbackState.durationMs).toLong()
+      pending != null -> pending
+      else -> playbackState.positionMs
     }
 
   val activeLineIndex =
@@ -171,61 +188,95 @@ fun PlayerScreen(
 
   val lyricListState = rememberLazyListState()
 
-  LaunchedEffect(activeLineIndex, song?.id) {
+  // isDraggingSlider is a key on purpose: while the thumb is held we don't scroll, and when it is
+  // released we must scroll to the new line even if the line index ended up unchanged.
+  LaunchedEffect(activeLineIndex, song?.id, isDraggingSlider, parsedLrc) {
     if (activeLineIndex >= 0 && parsedLrc.hasValidTimestamps && !isDraggingSlider) {
-      val target = (activeLineIndex - 2).coerceAtLeast(0)
-      if (preferences.reducedMotion) {
-        lyricListState.scrollToItem(target)
+      val keepAbove = (lyricListState.layoutInfo.viewportSize.height * 0.28f).toInt()
+      val far =
+        kotlin.math.abs(activeLineIndex - lyricListState.firstVisibleItemIndex) > 5
+      if (preferences.reducedMotion || far) {
+        lyricListState.scrollToItem(activeLineIndex, -keepAbove)
       } else {
-        lyricListState.animateScrollToItem(target)
+        lyricListState.animateScrollToItem(activeLineIndex, -keepAbove)
       }
     }
   }
 
-  Box(
-    modifier =
+  Box(modifier = Modifier.fillMaxSize().background(ink).testTag("player_screen")) {
+    // Backdrop: the album art, blurred (Android 12+), or a soft color wash on older phones.
+    if (song?.albumArtUri != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      AsyncImage(
+        model = song.albumArtUri,
+        contentDescription = null,
+        contentScale = ContentScale.Crop,
+        alpha = 0.85f,
+        modifier = Modifier.fillMaxSize().blur(80.dp),
+      )
+    } else {
+      Box(
+        Modifier.fillMaxSize()
+          .background(
+            Brush.linearGradient(
+              listOf(primary.copy(alpha = 0.55f), secondary.copy(alpha = 0.35f), ink)
+            )
+          )
+      )
+    }
+    Box(
       Modifier.fillMaxSize()
         .background(
           Brush.verticalGradient(
-            listOf(
-              primary.copy(alpha = 0.14f),
-              bg,
-              bg,
-            )
+            listOf(ink.copy(alpha = 0.25f), ink.copy(alpha = 0.55f), ink.copy(alpha = 0.90f))
           )
         )
-        .systemBarsPadding()
-        .testTag("player_screen")
-  ) {
+    )
+
     if (song == null) {
       Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
+        modifier = Modifier.fillMaxSize().systemBarsPadding().padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
       ) {
         Text(
           text = stringResource(R.string.player_no_song_selected),
           style = MaterialTheme.typography.titleLarge,
+          color = Color.White,
         )
         Spacer(Modifier.height(16.dp))
-        Button(onClick = onNavigateBack) { Text("Back to Library") }
+        TextButton(onClick = onNavigateBack) { Text("Back") }
       }
       return@Box
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
-      Spacer(Modifier.height(12.dp))
-
-      // 2. Compact Track Identity Header
+    Column(
+      modifier =
+        Modifier.fillMaxSize().systemBarsPadding().padding(start = 28.dp, end = 28.dp, bottom = 20.dp)
+    ) {
+      // Top: just a way back.
       Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().height(48.dp),
         verticalAlignment = Alignment.CenterVertically,
       ) {
+        IconButton(onClick = onNavigateBack, modifier = Modifier.offset(x = (-12).dp)) {
+          Icon(
+            imageVector = Icons.Rounded.KeyboardArrowDown,
+            contentDescription = stringResource(R.string.cd_back),
+            tint = Color.White,
+            modifier = Modifier.size(30.dp),
+          )
+        }
+      }
+
+      Spacer(Modifier.height(8.dp))
+
+      // Track identity.
+      Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         AlbumArtwork(
           artUri = song.albumArtUri,
           title = song.title,
-          modifier = Modifier.size(64.dp),
-          cornerRadius = 14.dp,
+          modifier = Modifier.size(56.dp),
+          cornerRadius = 12.dp,
         )
         Spacer(Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -233,163 +284,103 @@ fun PlayerScreen(
             text = song.title,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
+            color = Color.White,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
           )
           Text(
             text = song.artist,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = Color.White.copy(alpha = 0.70f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
           )
-          Spacer(Modifier.height(4.dp))
-          val (statusLabel, statusTint) =
-            when {
-              isLookingUpLyrics -> "Looking up lyrics…" to primary
-              lyricRecord?.status == LyricSyncStatus.CACHED_SYNCED ->
-                stringResource(R.string.player_lyrics_synced) to primary
-              lyricRecord?.status == LyricSyncStatus.CACHED_PLAIN ->
-                stringResource(R.string.player_lyrics_plain) to secondary
-              lyricRecord?.status == LyricSyncStatus.INSTRUMENTAL ->
-                stringResource(R.string.player_lyrics_instrumental) to
-                  MaterialTheme.colorScheme.onSurfaceVariant
-              lyricRecord?.status == LyricSyncStatus.NEEDS_REVIEW -> "Review Matches" to secondary
-              else -> stringResource(R.string.player_lyrics_none) to
-                MaterialTheme.colorScheme.onSurfaceVariant
-            }
-          Surface(
-            color = statusTint.copy(alpha = 0.16f),
-            shape = RoundedCornerShape(8.dp),
-            onClick = {
-              if (lyricRecord?.status == LyricSyncStatus.NEEDS_REVIEW && lyricRecord.candidates.isNotEmpty()) {
-                showReviewSheet = true
-              }
-            },
-          ) {
-            Text(
-              text = statusLabel,
-              style = MaterialTheme.typography.labelSmall,
-              color = statusTint,
-              modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-            )
-          }
         }
         IconButton(
           onClick = { onToggleFavorite(song.id) },
-          modifier = Modifier.minimumInteractiveComponentSize().testTag("player_favorite_button"),
+          modifier =
+            Modifier.offset(x = 12.dp).minimumInteractiveComponentSize().testTag("player_favorite_button"),
         ) {
           Icon(
             imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
             contentDescription = stringResource(R.string.cd_favorite),
-            tint = if (isFavorite) secondary else MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = if (isFavorite) secondary else Color.White,
+            modifier = Modifier.size(26.dp),
           )
         }
       }
 
-      Spacer(Modifier.height(14.dp))
-
-      // 3. Hero Cinematic Lyrics Area (Primary Product Differentiator)
-      Surface(
-        modifier = Modifier.fillMaxWidth().weight(1f).testTag("player_lyrics_viewport"),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
-        shape = RoundedCornerShape(24.dp),
-      ) {
+      // Lyrics sit directly on the artwork: bold sans-serif, no card, fading at the edges.
+      Box(modifier = Modifier.fillMaxWidth().weight(1f).testTag("player_lyrics_viewport")) {
+        val lyricFont = FontFamily.SansSerif
         when {
           parsedLrc.hasValidTimestamps -> {
             LazyColumn(
               state = lyricListState,
-              modifier = Modifier.fillMaxSize(),
-              contentPadding = PaddingValues(horizontal = 20.dp, vertical = 36.dp),
-              verticalArrangement = Arrangement.spacedBy(18.dp),
+              modifier =
+                Modifier.fillMaxSize()
+                  .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                  .drawWithContent {
+                    drawContent()
+                    drawRect(
+                      brush =
+                        Brush.verticalGradient(
+                          0f to Color.Transparent,
+                          0.14f to Color.Black,
+                          0.86f to Color.Black,
+                          1f to Color.Transparent,
+                        ),
+                      blendMode = BlendMode.DstIn,
+                    )
+                  },
+              contentPadding = PaddingValues(end = 20.dp, top = 40.dp, bottom = 120.dp),
+              verticalArrangement = Arrangement.spacedBy(22.dp),
             ) {
               itemsIndexed(
                 parsedLrc.lines,
                 key = { idx, line -> "${idx}_${line.timestampMs}" },
               ) { idx, line ->
                 val isCurrent = idx == activeLineIndex
-                val isPast = idx < activeLineIndex
-
-                val targetColor =
-                  when {
-                    isCurrent -> MaterialTheme.colorScheme.onBackground
-                    isPast -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
-                    else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.68f)
-                  }
                 val color by
                   animateColorAsState(
-                    targetValue = targetColor,
+                    targetValue = if (isCurrent) Color.White else Color.White.copy(alpha = 0.38f),
                     animationSpec = tween(if (preferences.reducedMotion) 0 else 220),
                     label = "lyric_color",
                   )
                 val scale by
                   animateFloatAsState(
-                    targetValue = if (isCurrent && !preferences.reducedMotion) 1.03f else 1.0f,
+                    targetValue = if (isCurrent && !preferences.reducedMotion) 1.12f else 1.0f,
                     animationSpec = tween(if (preferences.reducedMotion) 0 else 220),
                     label = "lyric_scale",
                   )
-
-                val displayText = line.text.ifBlank { "• • •" }
                 Text(
-                  text = displayText,
-                  style =
-                    MaterialTheme.typography.headlineMedium.copy(
-                      fontSize = preferences.lyricsFontSizeSp.sp,
-                      lineHeight = (preferences.lyricsFontSizeSp * 1.35f).sp,
-                      fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
-                    ),
+                  text = line.text.ifBlank { "\u2022 \u2022 \u2022" },
+                  fontFamily = lyricFont,
+                  fontWeight = FontWeight.ExtraBold,
+                  fontSize = (preferences.lyricsFontSizeSp + 4f).sp,
+                  lineHeight = ((preferences.lyricsFontSizeSp + 4f) * 1.3f).sp,
                   color = color,
                   modifier =
-                    Modifier.fillMaxWidth()
-                      .padding(vertical = 4.dp, horizontal = 4.dp)
-                      .graphicsLayer {
-                        scaleX = scale
-                        scaleY = scale
-                      },
+                    Modifier.fillMaxWidth().graphicsLayer {
+                      scaleX = scale
+                      scaleY = scale
+                      transformOrigin = TransformOrigin(0f, 0.5f)
+                    },
                 )
               }
             }
           }
 
           !lyricRecord?.plainLyrics.isNullOrBlank() -> {
-            Column(
+            Text(
+              text = plainLyricsText,
+              fontFamily = lyricFont,
+              fontWeight = FontWeight.Bold,
+              fontSize = preferences.lyricsFontSizeSp.sp,
+              lineHeight = (preferences.lyricsFontSizeSp * 1.4f).sp,
+              color = Color.White.copy(alpha = 0.92f),
               modifier =
-                Modifier.fillMaxSize()
-                  .verticalScroll(rememberScrollState())
-                  .padding(20.dp),
-            ) {
-              Surface(
-                color = secondary.copy(alpha = 0.14f),
-                shape = RoundedCornerShape(10.dp),
-              ) {
-                Text(
-                  text = stringResource(R.string.player_plain_notice),
-                  style = MaterialTheme.typography.bodySmall,
-                  color = secondary,
-                  modifier = Modifier.padding(10.dp),
-                )
-              }
-              Spacer(Modifier.height(16.dp))
-              Text(
-                text = plainLyricsText,
-                style =
-                  MaterialTheme.typography.bodyLarge.copy(
-                    fontSize = (preferences.lyricsFontSizeSp * 0.85f).sp,
-                    lineHeight = (preferences.lyricsFontSizeSp * 1.25f).sp,
-                  ),
-                color = MaterialTheme.colorScheme.onSurface,
-              )
-            }
-          }
-
-          lyricRecord?.status == LyricSyncStatus.INSTRUMENTAL -> {
-            BeatVisualizerPanel(
-              song = song,
-              isPlaying = playbackState.isPlaying,
-              reducedMotion = preferences.reducedMotion,
-              accentFallback = primary,
-              note = "Instrumental track \u00B7 no lyrics",
-              modifier = Modifier.fillMaxSize(),
+                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 24.dp),
             )
           }
 
@@ -399,20 +390,25 @@ fun PlayerScreen(
               isPlaying = playbackState.isPlaying,
               reducedMotion = preferences.reducedMotion,
               accentFallback = primary,
-              note = if (isLookingUpLyrics) "Looking for lyrics\u2026" else "No lyrics found yet",
-              modifier = Modifier.fillMaxSize(),
+              modifier = Modifier.fillMaxSize().padding(vertical = 12.dp),
             )
+            if (lyricRecord?.status == LyricSyncStatus.NEEDS_REVIEW && lyricRecord.candidates.isNotEmpty()) {
+              TextButton(
+                onClick = { showReviewSheet = true },
+                modifier = Modifier.align(Alignment.BottomCenter),
+              ) {
+                Text("Review matches", color = Color.White)
+              }
+            }
           }
         }
       }
 
-      Spacer(Modifier.height(12.dp))
-
-      // 4. Seek Bar & Timestamps
+      // Progress.
       val durationMs = playbackState.durationMs.coerceAtLeast(1L)
       val currentFraction =
         if (isDraggingSlider) sliderDragFraction
-        else (playbackState.positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+        else (effectivePositionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
 
       Slider(
         value = currentFraction,
@@ -422,34 +418,35 @@ fun PlayerScreen(
         },
         onValueChangeFinished = {
           val targetMs = (sliderDragFraction * durationMs).toLong()
+          pendingSeekMs = targetMs
           isDraggingSlider = false
           onSeekTo(targetMs)
         },
         colors =
           SliderDefaults.colors(
-            thumbColor = primary,
-            activeTrackColor = primary,
-            inactiveTrackColor = MaterialTheme.colorScheme.outline,
+            thumbColor = Color.White,
+            activeTrackColor = Color.White,
+            inactiveTrackColor = Color.White.copy(alpha = 0.25f),
           ),
-        modifier = Modifier.fillMaxWidth().testTag("player_seek_slider"),
+        modifier = Modifier.fillMaxWidth().offset(y = 4.dp).testTag("player_seek_slider"),
       )
 
       Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(
           text = LrcParser.formatTime(effectivePositionMs),
-          style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          style = MaterialTheme.typography.labelMedium,
+          color = Color.White.copy(alpha = 0.70f),
         )
         Text(
           text = LrcParser.formatTime(playbackState.durationMs),
-          style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          style = MaterialTheme.typography.labelMedium,
+          color = Color.White.copy(alpha = 0.70f),
         )
       }
 
-      Spacer(Modifier.height(6.dp))
+      Spacer(Modifier.height(12.dp))
 
-      // 5. Primary Playback Controls
+      // Controls.
       Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -462,9 +459,7 @@ fun PlayerScreen(
           Icon(
             imageVector = Icons.Rounded.Shuffle,
             contentDescription = stringResource(R.string.cd_shuffle),
-            tint =
-              if (playbackState.shuffleEnabled) primary
-              else MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = if (playbackState.shuffleEnabled) primary else Color.White.copy(alpha = 0.75f),
           )
         }
 
@@ -475,26 +470,25 @@ fun PlayerScreen(
           Icon(
             imageVector = Icons.Rounded.SkipPrevious,
             contentDescription = stringResource(R.string.cd_previous),
-            modifier = Modifier.size(34.dp),
+            tint = Color.White,
+            modifier = Modifier.size(36.dp),
           )
         }
 
         Surface(
           onClick = onTogglePlayPause,
           shape = CircleShape,
-          color = primary,
-          contentColor = MaterialTheme.colorScheme.onPrimary,
-          modifier = Modifier.size(64.dp).testTag("player_play_pause_button"),
+          color = Color.White,
+          contentColor = ink,
+          modifier = Modifier.size(72.dp).testTag("player_play_pause_button"),
         ) {
           Box(contentAlignment = Alignment.Center) {
             Icon(
               imageVector =
                 if (playbackState.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
               contentDescription =
-                stringResource(
-                  if (playbackState.isPlaying) R.string.cd_pause else R.string.cd_play
-                ),
-              modifier = Modifier.size(34.dp),
+                stringResource(if (playbackState.isPlaying) R.string.cd_pause else R.string.cd_play),
+              modifier = Modifier.size(36.dp),
             )
           }
         }
@@ -506,7 +500,8 @@ fun PlayerScreen(
           Icon(
             imageVector = Icons.Rounded.SkipNext,
             contentDescription = stringResource(R.string.cd_next),
-            modifier = Modifier.size(34.dp),
+            tint = Color.White,
+            modifier = Modifier.size(36.dp),
           )
         }
 
@@ -521,22 +516,11 @@ fun PlayerScreen(
             contentDescription = stringResource(R.string.cd_repeat),
             tint =
               if (playbackState.repeatMode != Player.REPEAT_MODE_OFF) primary
-              else MaterialTheme.colorScheme.onSurfaceVariant,
+              else Color.White.copy(alpha = 0.75f),
           )
         }
       }
-
     }
-  }
-
-  if (showQueueSheet) {
-    QueueBottomSheet(
-      queue = playbackState.queue,
-      currentIndex = playbackState.currentIndex,
-      onDismiss = { showQueueSheet = false },
-      onSelectIndex = { idx -> onSelectQueueIndex(idx) },
-      onRemoveIndex = { idx -> onRemoveQueueIndex(idx) },
-    )
   }
 
   if (showReviewSheet && song != null && lyricRecord != null) {

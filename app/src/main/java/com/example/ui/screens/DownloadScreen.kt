@@ -168,11 +168,6 @@ fun DownloadScreen(
         style = MaterialTheme.typography.headlineMedium,
         fontWeight = FontWeight.Bold,
       )
-      Text(
-        text = stringResource(R.string.downloads_subtitle),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-      )
     }
 
     if (!hasAudioPermission) {

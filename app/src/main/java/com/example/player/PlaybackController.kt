@@ -197,32 +197,11 @@ class PlaybackController(
     }
   }
 
-  /** Jumps to [positionMs] and makes sure playback is running (used when tapping a lyric line). */
-  fun seekToAndPlay(positionMs: Long) {
-    val mc = controller ?: return
-    val clamped = positionMs.coerceAtLeast(0L)
-    if (mc.playbackState == Player.STATE_IDLE && mc.mediaItemCount > 0) {
-      mc.prepare()
-    }
-    mc.seekTo(clamped)
-    if (!mc.isPlaying) mc.play()
-    _state.update { it.copy(positionMs = clamped, isPlaying = true) }
-  }
-
   fun seekTo(positionMs: Long) {
     val mc = controller ?: return
     val clamped = positionMs.coerceAtLeast(0L)
     mc.seekTo(clamped)
     _state.update { it.copy(positionMs = clamped) }
-  }
-
-  fun seekToQueueIndex(index: Int) {
-    val mc = controller ?: return
-    if (index in 0 until mc.mediaItemCount) {
-      mc.seekToDefaultPosition(index)
-      mc.play()
-      syncFromPlayer()
-    }
   }
 
   fun next() {
@@ -269,16 +248,6 @@ class PlaybackController(
     mc.setPlaybackSpeed(clamped)
     _state.update { it.copy(playbackSpeed = clamped) }
     scope.launch { preferencesRepository.setDefaultPlaybackSpeed(clamped) }
-  }
-
-  fun removeFromQueue(index: Int) {
-    val mc = controller ?: return
-    if (index !in 0 until mc.mediaItemCount) return
-    mc.removeMediaItem(index)
-    if (index in currentQueueSongs.indices) {
-      currentQueueSongs = currentQueueSongs.toMutableList().apply { removeAt(index) }
-    }
-    syncFromPlayer()
   }
 
   fun clearError() {

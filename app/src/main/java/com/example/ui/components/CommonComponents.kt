@@ -310,7 +310,6 @@ fun SongRowItem(
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
-          LyricStatusBadge(lyricStatus)
         }
       }
       IconButton(
@@ -553,7 +552,7 @@ fun AddToPlaylistSheet(
       Spacer(Modifier.height(14.dp))
       if (playlists.isEmpty()) {
         Text(
-          text = "No playlists yet. Create one above.",
+          text = "No playlists yet",
           style = MaterialTheme.typography.bodyMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
           modifier = Modifier.padding(vertical = 16.dp),
@@ -593,90 +592,6 @@ fun AddToPlaylistSheet(
         }
       }
       Spacer(Modifier.height(24.dp))
-    }
-  }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun QueueBottomSheet(
-  queue: List<Song>,
-  currentIndex: Int,
-  onDismiss: () -> Unit,
-  onSelectIndex: (Int) -> Unit,
-  onRemoveIndex: (Int) -> Unit,
-) {
-  ModalBottomSheet(onDismissRequest = onDismiss) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
-      Text(
-        text = "${stringResource(R.string.player_queue_title)} (${queue.size})",
-        style = MaterialTheme.typography.titleLarge,
-      )
-      Spacer(Modifier.height(12.dp))
-      if (queue.isEmpty()) {
-        Text(
-          text = "Queue is empty.",
-          style = MaterialTheme.typography.bodyMedium,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-          modifier = Modifier.padding(vertical = 24.dp),
-        )
-      } else {
-        LazyColumn(modifier = Modifier.height(340.dp)) {
-          itemsIndexed(queue, key = { idx, s -> "${s.id}_$idx" }) { idx, item ->
-            val isActive = idx == currentIndex
-            Row(
-              modifier =
-                Modifier.fillMaxWidth()
-                  .clip(RoundedCornerShape(10.dp))
-                  .background(
-                    if (isActive) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-                    else Color.Transparent
-                  )
-                  .clickable { onSelectIndex(idx) }
-                  .padding(horizontal = 10.dp, vertical = 8.dp),
-              verticalAlignment = Alignment.CenterVertically,
-            ) {
-              Text(
-                text = "${idx + 1}",
-                style = MaterialTheme.typography.labelSmall,
-                color =
-                  if (isActive) MaterialTheme.colorScheme.primary
-                  else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.width(26.dp),
-              )
-              Column(modifier = Modifier.weight(1f)) {
-                Text(
-                  text = item.title,
-                  style = MaterialTheme.typography.titleMedium,
-                  fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
-                  color =
-                    if (isActive) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurface,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                  text = "${item.artist} • ${LrcParser.formatTime(item.durationMs)}",
-                  style = MaterialTheme.typography.bodySmall,
-                  color = MaterialTheme.colorScheme.onSurfaceVariant,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis,
-                )
-              }
-              if (!isActive) {
-                IconButton(onClick = { onRemoveIndex(idx) }) {
-                  Icon(
-                    Icons.Rounded.Close,
-                    contentDescription = "Remove from queue",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                  )
-                }
-              }
-            }
-          }
-        }
-      }
-      Spacer(Modifier.height(20.dp))
     }
   }
 }

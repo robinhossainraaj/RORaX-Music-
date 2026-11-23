@@ -26,8 +26,8 @@ import kotlin.math.sqrt
 object SpectrumBus {
   const val BANDS = 32
   const val DEFAULT_DELAY_MS = 140L
-  private const val RING = 48
-  private const val MAX_AGE_NS = 600_000_000L
+  private const val RING = 256
+  private const val MAX_AGE_NS = 1_500_000_000L
 
   private val times = LongArray(RING)
   private val frames = Array(RING) { FloatArray(BANDS) }
@@ -51,20 +51,21 @@ object SpectrumBus {
   @Synchronized
   fun sample(nowNanos: Long, out: FloatArray, delayMs: Long = DEFAULT_DELAY_MS): Float? {
     if (count == 0) return null
+    val newest = (head - 1 + RING) % RING
+    // Nothing new for a while: playback is paused, or this format can't be analysed.
+    if (nowNanos - times[newest] > MAX_AGE_NS) return null
     val cutoff = nowNanos - delayMs * 1_000_000L
-    var idx = (head - 1 + RING) % RING
+    // Walk back from the newest frame to the one that matches what is audible right now. Audio
+    // arrives in bursts, so if every frame is newer than the cutoff, use the oldest one we have
+    // instead of giving up (giving up made the visualizer drop out at random).
+    var idx = newest
     var seen = 0
-    while (seen < count) {
-      val t = times[idx]
-      if (nowNanos - t > MAX_AGE_NS + delayMs * 1_000_000L) return null
-      if (t <= cutoff) {
-        System.arraycopy(frames[idx], 0, out, 0, BANDS)
-        return bass[idx]
-      }
+    while (seen < count - 1 && times[idx] > cutoff) {
       idx = (idx - 1 + RING) % RING
       seen++
     }
-    return null
+    System.arraycopy(frames[idx], 0, out, 0, BANDS)
+    return bass[idx]
   }
 
   @Synchronized

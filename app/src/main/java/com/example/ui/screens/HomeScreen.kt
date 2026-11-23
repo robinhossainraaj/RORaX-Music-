@@ -232,8 +232,6 @@ fun HomeScreen(
       Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
           CircularProgressIndicator()
-          Spacer(Modifier.height(12.dp))
-          Text("Looking for your music…", style = MaterialTheme.typography.bodyMedium)
         }
       }
       return
@@ -609,7 +607,7 @@ fun HomeScreen(
               if (playlists.isEmpty()) {
                 item {
                   Text(
-                    text = "No playlists yet. Create one to organize your music.",
+                    text = "No playlists yet",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(vertical = 16.dp),
@@ -673,11 +671,6 @@ fun HomeScreen(
                   )
                   Spacer(Modifier.height(10.dp))
                   Text("No favorite songs yet", style = MaterialTheme.typography.titleMedium)
-                  Text(
-                    "Tap the heart icon on any track to save it here.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                  )
                 }
               }
             } else {
@@ -899,12 +892,6 @@ private fun EmptyLibraryState(onRescan: () -> Unit) {
       Text(
         text = stringResource(R.string.home_empty_library_title),
         style = MaterialTheme.typography.titleLarge,
-      )
-      Spacer(Modifier.height(8.dp))
-      Text(
-        text = stringResource(R.string.home_empty_library_body),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
       Spacer(Modifier.height(18.dp))
       Button(onClick = onRescan, modifier = Modifier.testTag("empty_rescan_button")) {

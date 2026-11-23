@@ -83,6 +83,7 @@ private class VizState {
   var sinceAmbient = 0f
   var time = 0f
   var lastNanos = 0L
+  var sinceReal = 0f
 
   val px = FloatArray(MAX_PARTICLES)
   val py = FloatArray(MAX_PARTICLES)
@@ -122,8 +123,8 @@ fun BeatVisualizerPanel(
   isPlaying: Boolean,
   reducedMotion: Boolean,
   accentFallback: Color,
-  note: String,
   modifier: Modifier = Modifier,
+  note: String = "",
   actions: @Composable RowScope.() -> Unit = {},
 ) {
   val accent by
@@ -211,43 +212,20 @@ fun BeatVisualizerPanel(
 
     Column(
       modifier =
-        Modifier.fillMaxWidth()
-          .offset { IntOffset(0, (cy + artPx / 2f + 14.dp.toPx()).roundToInt()) }
-          .padding(horizontal = 16.dp),
-      horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-      Text(
-        text = song.title.uppercase(),
-        style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 2.sp),
-        color = Color.White.copy(alpha = 0.80f),
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        textAlign = TextAlign.Center,
-      )
-      Text(
-        text = song.artist.uppercase(),
-        style = MaterialTheme.typography.titleSmall.copy(letterSpacing = 3.sp),
-        color = accent,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        textAlign = TextAlign.Center,
-      )
-    }
-
-    Column(
-      modifier =
         Modifier.align(Alignment.BottomCenter)
           .fillMaxWidth()
           .padding(start = 12.dp, end = 12.dp, bottom = 10.dp),
       horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-      Text(
-        text = note,
-        style = MaterialTheme.typography.bodySmall,
-        color = Color.White.copy(alpha = 0.60f),
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-      )
+      if (note.isNotBlank()) {
+        Text(
+          text = note,
+          style = MaterialTheme.typography.bodySmall,
+          color = Color.White.copy(alpha = 0.60f),
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+        )
+      }
       Row(
         modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -266,7 +244,13 @@ private fun stepViz(s: VizState, now: Long, playing: Boolean, w: Float, h: Float
   if (playing) {
     val real = SpectrumBus.sample(System.nanoTime(), s.raw)
     if (real != null) {
+      s.sinceReal = 0f
       bassTarget = real
+    } else if (s.sinceReal < 1.2f) {
+      // Brief gap in the audio data (e.g. just after a seek): let the bars settle, don't fake it.
+      s.sinceReal += dt
+      for (i in s.raw.indices) s.raw[i] *= 0.9f
+      bassTarget = 0f
     } else {
       // No audio data (e.g. an unusual audio format): fall back to a gentle rhythmic motion.
       val beat = (0.5f + 0.5f * sin(s.time * 2f * PI.toFloat() * 1.8f)).pow(3f)
