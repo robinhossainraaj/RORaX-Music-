@@ -90,8 +90,11 @@ class LyricsRepository(
     forceRefresh: Boolean = false,
   ): LyricLookupOutcome = withContext(Dispatchers.IO) {
     val existing = lyricsDao.getBySongId(song.id)?.toDomain()
-    if (!forceRefresh && existing?.status == LyricSyncStatus.CACHED_SYNCED) {
-      return@withContext LyricLookupOutcome.Saved(existing)
+    // Saved lyrics timed for a longer version of the song are wrong, so they are not worth keeping.
+    val keepable =
+      existing?.takeUnless { LyricMatcher.isMistimed(it.syncedLyricsLrc, song.durationMs) }
+    if (!forceRefresh && keepable?.status == LyricSyncStatus.CACHED_SYNCED) {
+      return@withContext LyricLookupOutcome.Saved(keepable)
     }
 
     if (!isNetworkAvailable()) {
@@ -143,8 +146,8 @@ class LyricsRepository(
         }
         is MatchEvaluation.NeedsReview -> {
           // Never overwrite good cached synced lyrics with Needs Review
-          if (existing?.status == LyricSyncStatus.CACHED_SYNCED) {
-            return@withContext LyricLookupOutcome.Saved(existing)
+          if (keepable?.status == LyricSyncStatus.CACHED_SYNCED) {
+            return@withContext LyricLookupOutcome.Saved(keepable)
           }
           val entity =
             LyricsEntity(
@@ -159,8 +162,8 @@ class LyricsRepository(
           LyricLookupOutcome.NeedsReview(entity.toDomain(), eval.candidates)
         }
         MatchEvaluation.NoValidMatch -> {
-          if (existing?.status == LyricSyncStatus.CACHED_SYNCED || existing?.status == LyricSyncStatus.CACHED_PLAIN) {
-            return@withContext LyricLookupOutcome.Saved(existing)
+          if (keepable?.status == LyricSyncStatus.CACHED_SYNCED || keepable?.status == LyricSyncStatus.CACHED_PLAIN) {
+            return@withContext LyricLookupOutcome.Saved(keepable)
           }
           val entity =
             LyricsEntity(

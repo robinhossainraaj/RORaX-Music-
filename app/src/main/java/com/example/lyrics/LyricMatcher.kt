@@ -135,16 +135,23 @@ object LyricMatcher {
           score += 20
           reasons.add("Exact duration")
         }
-        diff <= 5 -> {
+        diff <= MAX_SYNC_DRIFT_SEC -> {
           score += 14
           reasons.add("Close duration (±${diff}s)")
         }
-        diff <= 12 -> score += 4
-        diff > 25 -> {
-          score -= 28
+        // A different length means a different edit, so its line timings would not match.
+        diff <= 8 -> {
+          score -= 12
           reasons.add("Duration differs by ${diff}s")
         }
-        else -> score -= 12
+        diff <= 25 -> {
+          score -= 26
+          reasons.add("Duration differs by ${diff}s")
+        }
+        else -> {
+          score -= 40
+          reasons.add("Duration differs by ${diff}s")
+        }
       }
     }
 
@@ -204,6 +211,42 @@ object LyricMatcher {
     )
   }
 
+  /** Largest length difference, in seconds, at which another copy's line timings still line up. */
+  const val MAX_SYNC_DRIFT_SEC = 3
+  private const val END_MARGIN_MS = 3_000L
+
+  /**
+   * True when [syncedLrc] has a line later than the song ends. Those timings were made for a
+   * longer version, so every line would be off against this file.
+   */
+  fun isMistimed(syncedLrc: String?, songDurationMs: Long): Boolean {
+    if (syncedLrc.isNullOrBlank() || songDurationMs <= 0L) return false
+    val lastLineMs = LrcParser.parse(syncedLrc).lines.maxOfOrNull { it.timestampMs } ?: return false
+    return lastLineMs > songDurationMs + END_MARGIN_MS
+  }
+
+  private fun isTimingDoubtful(query: LyricQuery, candidate: LyricCandidate): Boolean {
+    val candidateSec = candidate.durationSec
+    if (candidateSec != null && query.durationSec > 0 &&
+      abs(query.durationSec - candidateSec) > MAX_SYNC_DRIFT_SEC
+    ) {
+      return true
+    }
+    return isMistimed(candidate.syncedLyrics, query.durationSec * 1000L)
+  }
+
+  /** Timed lyrics that may not line up with this file are left for the user to confirm. */
+  private fun confidentUnlessMistimed(
+    query: LyricQuery,
+    top: LyricCandidate,
+    usable: List<LyricCandidate>,
+  ): MatchEvaluation =
+    if (top.hasSyncedLyrics && isTimingDoubtful(query, top)) {
+      MatchEvaluation.NeedsReview(usable.take(6))
+    } else {
+      MatchEvaluation.ConfidentMatch(top)
+    }
+
   fun evaluateCandidates(query: LyricQuery, tracks: List<RemoteLyricTrack>): MatchEvaluation {
     val usable =
       tracks
@@ -235,7 +278,7 @@ object LyricMatcher {
       top.matchScore >= 78 &&
         (closeCompetitors.isEmpty() || !closeCompetitors.first().hasSyncedLyrics && top.hasSyncedLyrics)
     ) {
-      return MatchEvaluation.ConfidentMatch(top)
+      return confidentUnlessMistimed(query, top, usable)
     }
 
     if (closeCompetitors.isNotEmpty()) {
@@ -252,7 +295,7 @@ object LyricMatcher {
     }
 
     return if (top.matchScore >= 58) {
-      MatchEvaluation.ConfidentMatch(top)
+      confidentUnlessMistimed(query, top, usable)
     } else {
       MatchEvaluation.NeedsReview(usable.take(6))
     }

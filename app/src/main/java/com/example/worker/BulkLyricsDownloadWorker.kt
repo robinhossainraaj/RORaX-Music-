@@ -16,6 +16,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.example.lyrics.LyricMatcher
 import com.example.R
 import com.example.RoraxApplication
 import com.example.data.db.DownloadTaskEntity
@@ -74,11 +75,10 @@ class BulkLyricsDownloadWorker(
           taskStatus == DownloadTaskStatus.FAILED_RETRYABLE ||
             taskStatus == DownloadTaskStatus.CANCELLED ||
             cachedStatus == LyricSyncStatus.FAILED_RETRYABLE
-        } else if (forceRefresh) {
-          cachedStatus != LyricSyncStatus.CACHED_SYNCED
         } else {
-          // Skip valid cached synced lyrics by default
-          cachedStatus != LyricSyncStatus.CACHED_SYNCED
+          // Skip valid cached synced lyrics, but redo ones timed for a longer version of the song.
+          cachedStatus != LyricSyncStatus.CACHED_SYNCED ||
+            LyricMatcher.isMistimed(existingLyrics[song.id]?.syncedLyricsLrc, song.durationMs)
         }
       }
 

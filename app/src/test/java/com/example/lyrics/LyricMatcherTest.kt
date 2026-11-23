@@ -4,6 +4,7 @@ import com.example.model.LyricQuery
 import com.example.model.LyricSource
 import com.example.model.RemoteLyricTrack
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -92,5 +93,54 @@ class LyricMatcherTest {
     val evaluation = LyricMatcher.evaluateCandidates(query(), listOf(a, b))
 
     assertTrue(evaluation is MatchEvaluation.ConfidentMatch)
+  }
+
+  @Test
+  fun `timed lyrics from a version of different length are not saved automatically`() {
+    // Identical title, artist and album, but 14 seconds longer: its line timings would be late.
+    val longer = track(501L, "Ocean Lights", "Glass Harbor", 224.0)
+
+    val evaluation = LyricMatcher.evaluateCandidates(query(), listOf(longer))
+
+    assertTrue("expected review but got $evaluation", evaluation is MatchEvaluation.NeedsReview)
+  }
+
+  @Test
+  fun `the copy whose length matches the file is chosen over a longer edit`() {
+    val longer = track(601L, "Ocean Lights", "Glass Harbor", 228.0)
+    val matching = track(602L, "Ocean Lights", "Glass Harbor", 211.0)
+
+    val evaluation = LyricMatcher.evaluateCandidates(query(), listOf(longer, matching))
+
+    assertTrue(evaluation is MatchEvaluation.ConfidentMatch)
+    assertEquals(602L, (evaluation as MatchEvaluation.ConfidentMatch).candidate.id)
+  }
+
+  @Test
+  fun `a length difference within three seconds is still accepted`() {
+    val evaluation =
+      LyricMatcher.evaluateCandidates(query(), listOf(track(701L, "Ocean Lights", "Glass Harbor", 213.0)))
+
+    assertTrue(evaluation is MatchEvaluation.ConfidentMatch)
+  }
+
+  @Test
+  fun `lyrics with a line after the song ends are not saved automatically`() {
+    // Claims to be 210 s long but has a line at 4:10 (250 s).
+    val overrun =
+      track(801L, "Ocean Lights", "Glass Harbor", 210.0, synced = "[00:05.00]One\n[04:10.00]Late")
+
+    val evaluation = LyricMatcher.evaluateCandidates(query(), listOf(overrun))
+
+    assertTrue("expected review but got $evaluation", evaluation is MatchEvaluation.NeedsReview)
+  }
+
+  @Test
+  fun `saved lyrics that run past the end of the song are detected as mistimed`() {
+    val lrc = "[00:05.00]One\n[03:50.00]Last"
+    assertTrue(LyricMatcher.isMistimed(lrc, 200_000L))
+    assertFalse(LyricMatcher.isMistimed(lrc, 232_000L))
+    assertFalse(LyricMatcher.isMistimed(lrc, 0L))
+    assertFalse(LyricMatcher.isMistimed(null, 200_000L))
   }
 }
