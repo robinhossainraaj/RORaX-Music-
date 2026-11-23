@@ -197,6 +197,10 @@ class PlaybackController(
     }
   }
 
+  /** The player's exact position right now, read on demand rather than from the 100 ms poll. */
+  fun livePositionMs(): Long =
+    controller?.currentPosition?.coerceAtLeast(0L) ?: _state.value.positionMs
+
   fun seekTo(positionMs: Long) {
     val mc = controller ?: return
     val clamped = positionMs.coerceAtLeast(0L)

@@ -25,6 +25,7 @@ class UserPreferencesRepository(private val context: Context) {
     val THEME_MODE = stringPreferencesKey("theme_mode")
     val ACCENT_PALETTE = stringPreferencesKey("accent_palette")
     val LYRICS_FONT_SIZE = floatPreferencesKey("lyrics_font_size_sp")
+    val LYRICS_OFFSET = intPreferencesKey("lyrics_offset_ms")
     val REDUCED_MOTION = booleanPreferencesKey("reduced_motion")
     val AUTO_LYRIC_LOOKUP = booleanPreferencesKey("auto_lyric_lookup_on_play")
     val ROMANIZE_LYRICS = booleanPreferencesKey("romanize_lyrics")
@@ -50,6 +51,7 @@ class UserPreferencesRepository(private val context: Context) {
             AccentPalette.entries.firstOrNull { it.name == name }
           } ?: AccentPalette.CYAN,
         lyricsFontSizeSp = (prefs[Keys.LYRICS_FONT_SIZE] ?: 22f).coerceIn(16f, 34f),
+        lyricsOffsetMs = (prefs[Keys.LYRICS_OFFSET] ?: 150).coerceIn(-500, 500),
         reducedMotion = prefs[Keys.REDUCED_MOTION] ?: false,
         autoLyricLookupOnPlay = prefs[Keys.AUTO_LYRIC_LOOKUP] ?: true,
         romanizeLyrics = prefs[Keys.ROMANIZE_LYRICS] ?: true,
@@ -70,6 +72,10 @@ class UserPreferencesRepository(private val context: Context) {
 
   suspend fun setAccentPalette(palette: AccentPalette) {
     context.roraxPrefsDataStore.edit { it[Keys.ACCENT_PALETTE] = palette.name }
+  }
+
+  suspend fun setLyricsOffset(offsetMs: Int) {
+    context.roraxPrefsDataStore.edit { it[Keys.LYRICS_OFFSET] = offsetMs.coerceIn(-500, 500) }
   }
 
   suspend fun setLyricsFontSize(sizeSp: Float) {

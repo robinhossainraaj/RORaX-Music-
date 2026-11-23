@@ -66,6 +66,7 @@ fun SettingsScreen(
   onSetThemeMode: (ThemeMode) -> Unit,
   onSetAccentPalette: (AccentPalette) -> Unit,
   onSetLyricsFontSize: (Float) -> Unit,
+  onSetLyricsOffset: (Int) -> Unit,
   onSetReducedMotion: (Boolean) -> Unit,
   onSetResumeSession: (Boolean) -> Unit,
   onSetDefaultSpeed: (Float) -> Unit,
@@ -161,6 +162,35 @@ fun SettingsScreen(
           text = "Sample active lyric line",
           style = MaterialTheme.typography.titleMedium.copy(fontSize = preferences.lyricsFontSizeSp.sp),
           color = MaterialTheme.colorScheme.primary,
+        )
+        Spacer(Modifier.height(12.dp))
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          Text("Lyrics Timing", style = MaterialTheme.typography.labelLarge)
+          Text(
+            text =
+              when {
+                preferences.lyricsOffsetMs > 0 -> "${preferences.lyricsOffsetMs} ms earlier"
+                preferences.lyricsOffsetMs < 0 -> "${-preferences.lyricsOffsetMs} ms later"
+                else -> "On time"
+              },
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary,
+          )
+        }
+        Slider(
+          value = preferences.lyricsOffsetMs.toFloat(),
+          onValueChange = { onSetLyricsOffset(it.toInt()) },
+          valueRange = -500f..500f,
+          steps = 19,
+        )
+        Text(
+          text = "Lyrics late? Slide right. Lyrics early? Slide left. Bluetooth speakers and headphones often need a little extra.",
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(12.dp))
         SettingsSwitchRow(

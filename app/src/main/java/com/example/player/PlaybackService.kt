@@ -5,7 +5,11 @@ import android.content.Intent
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.extractor.DefaultExtractorsFactory
+import androidx.media3.extractor.mp3.Mp3Extractor
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.example.MainActivity
@@ -14,6 +18,7 @@ class PlaybackService : MediaSessionService() {
 
   private var mediaSession: MediaSession? = null
 
+  @OptIn(UnstableApi::class)
   override fun onCreate() {
     super.onCreate()
     val audioAttributes =
@@ -22,8 +27,16 @@ class PlaybackService : MediaSessionService() {
         .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
         .build()
 
+    // Many MP3s carry no seek table, so the default seeking only estimates where a time is in the
+    // file. The audio then starts at a different moment than the player reports, and the lyrics
+    // stay out of step after every seek. These settings make seeking accurate.
+    val extractorsFactory =
+      DefaultExtractorsFactory()
+        .setConstantBitrateSeekingEnabled(true)
+        .setMp3ExtractorFlags(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING)
+
     val player =
-      ExoPlayer.Builder(this)
+      ExoPlayer.Builder(this, DefaultMediaSourceFactory(this, extractorsFactory))
         .setAudioAttributes(audioAttributes, true)
         .setHandleAudioBecomingNoisy(true)
         .build()

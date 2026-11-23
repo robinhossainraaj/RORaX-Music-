@@ -21,6 +21,8 @@ data class UserPreferences(
   val themeMode: ThemeMode = ThemeMode.DARK,
   val accentPalette: AccentPalette = AccentPalette.CYAN,
   val lyricsFontSizeSp: Float = 22f,
+  /** Shifts lyrics earlier (+) or later (-), in ms, to offset speaker or Bluetooth delay. */
+  val lyricsOffsetMs: Int = 150,
   val reducedMotion: Boolean = false,
   val autoLyricLookupOnPlay: Boolean = true,
   val romanizeLyrics: Boolean = true,

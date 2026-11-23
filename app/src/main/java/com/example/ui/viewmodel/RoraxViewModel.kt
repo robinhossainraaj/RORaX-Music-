@@ -430,6 +430,9 @@ class RoraxViewModel(application: Application) : AndroidViewModel(application) {
   fun setAccentPalette(palette: AccentPalette) =
     viewModelScope.launch { prefsRepo.setAccentPalette(palette) }
 
+  fun setLyricsOffset(offsetMs: Int) =
+    viewModelScope.launch { prefsRepo.setLyricsOffset(offsetMs) }
+
   fun setLyricsFontSize(sizeSp: Float) =
     viewModelScope.launch { prefsRepo.setLyricsFontSize(sizeSp) }
 

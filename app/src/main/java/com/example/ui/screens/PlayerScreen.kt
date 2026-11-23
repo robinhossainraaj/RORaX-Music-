@@ -60,8 +60,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -94,6 +100,7 @@ import com.example.ui.components.ReviewCandidatesSheet
 @Composable
 fun PlayerScreen(
   playbackState: PlaybackUiState,
+  livePositionMs: () -> Long,
   lyricRecord: LyricRecord?,
   isFavorite: Boolean,
   preferences: UserPreferences,
@@ -158,25 +165,47 @@ fun PlayerScreen(
       playbackState.positionMs
     }
 
-  val activeLineIndex =
-    remember(parsedLrc, effectivePositionMs) {
-      if (parsedLrc.hasValidTimestamps) {
-        LrcParser.findActiveLineIndex(parsedLrc.lines, effectivePositionMs)
-      } else {
-        -1
+  // The lyric clock reads the player's real position on every frame while the song plays, so the
+  // highlighted line is never a poll behind the audio. Only the line number is observed, so the
+  // screen redraws when the line changes, not 60 times a second.
+  var lyricPositionMs by remember { mutableLongStateOf(playbackState.positionMs) }
+  val isPlayingNow by rememberUpdatedState(playbackState.isPlaying)
+  val durationNow by rememberUpdatedState(playbackState.durationMs)
+  val lyricOffsetNow by rememberUpdatedState(preferences.lyricsOffsetMs)
+
+  LaunchedEffect(song?.id) {
+    while (isActive) {
+      lyricPositionMs = livePositionMs()
+      if (isPlayingNow) withFrameNanos { } else delay(100L)
+    }
+  }
+
+  val activeLineIndex by
+    remember(parsedLrc) {
+      derivedStateOf {
+        if (!parsedLrc.hasValidTimestamps) {
+          -1
+        } else {
+          val positionMs =
+            if (isDraggingSlider && durationNow > 0L) (sliderDragFraction * durationNow).toLong()
+            else lyricPositionMs
+          LrcParser.findActiveLineIndex(parsedLrc.lines, positionMs + lyricOffsetNow)
+        }
       }
     }
 
   val lyricListState = rememberLazyListState()
 
-  LaunchedEffect(activeLineIndex, song?.id) {
-    if (activeLineIndex >= 0 && parsedLrc.hasValidTimestamps && !isDraggingSlider) {
-      val target = (activeLineIndex - 2).coerceAtLeast(0)
-      if (preferences.reducedMotion) {
-        lyricListState.scrollToItem(target)
-      } else {
-        lyricListState.animateScrollToItem(target)
-      }
+  // Also runs when a drag ends, when the song changes and when the lyrics load, so the list never
+  // stays scrolled to the wrong place after a seek or a track change.
+  LaunchedEffect(activeLineIndex, song?.id, parsedLrc, isDraggingSlider) {
+    if (!parsedLrc.hasValidTimestamps) return@LaunchedEffect
+    val target = (activeLineIndex - 2).coerceAtLeast(0)
+    val distance = kotlin.math.abs(target - lyricListState.firstVisibleItemIndex)
+    if (preferences.reducedMotion || isDraggingSlider || distance > 6) {
+      lyricListState.scrollToItem(target)
+    } else {
+      lyricListState.animateScrollToItem(target)
     }
   }
 
@@ -408,13 +437,13 @@ fun PlayerScreen(
                 val color by
                   animateColorAsState(
                     targetValue = targetColor,
-                    animationSpec = tween(if (preferences.reducedMotion) 0 else 220),
+                    animationSpec = tween(if (preferences.reducedMotion) 0 else 120),
                     label = "lyric_color",
                   )
                 val scale by
                   animateFloatAsState(
                     targetValue = if (isCurrent && !preferences.reducedMotion) 1.03f else 1.0f,
-                    animationSpec = tween(if (preferences.reducedMotion) 0 else 220),
+                    animationSpec = tween(if (preferences.reducedMotion) 0 else 120),
                     label = "lyric_scale",
                   )
 
