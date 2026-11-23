@@ -42,6 +42,8 @@ data class PlaybackUiState(
   val isConnected: Boolean = false,
 )
 
+private const val POSITION_POLL_MS = 200L
+
 class PlaybackController(
   private val context: Context,
   private val localMusicRepository: LocalMusicRepository,
@@ -288,11 +290,13 @@ class PlaybackController(
             val dur = mc.duration.takeIf { it > 0L } ?: _state.value.currentSong?.durationMs ?: 0L
             _state.update { it.copy(positionMs = pos, durationMs = dur, isPlaying = mc.isPlaying) }
             sessionSaveCounter++
-            if (sessionSaveCounter % 30 == 0) {
+            if (sessionSaveCounter % 15 == 0) {
               persistSessionSnapshot()
             }
           }
-          delay(100L)
+          // The whole UI observes this state, so it is refreshed 5 times a second, not 10. Lyrics
+          // use their own live clock (livePositionMs) and do not depend on this rate.
+          delay(POSITION_POLL_MS)
         }
       }
   }
